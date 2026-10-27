@@ -5,9 +5,14 @@ Functioneaza pe Windows, Linux (x86/ARM) si macOS. Pe Linux este nevoie de o reg
 """
 from __future__ import annotations
 
+import logging
+import time
+
 from atorch.protocol import FRAME_LEN, ProtocolError, hid_report, parse_reply
 from atorch.protocol.frames import Reply
 from ..base import DeviceInfo, Transport, TransportError, TransportTimeout
+
+log = logging.getLogger("atorch.usb")
 
 VID = 0x0483
 PID = 0x5750
@@ -39,6 +44,7 @@ def list_devices(hid_module=None) -> list[DeviceInfo]:
 
 class UsbHidTransport(Transport):
     name = "usb"
+    _t_tx = 0.0
 
     def __init__(self, path: str | None = None, hid_module=None):
         self._hid = hid_module or _hid()
@@ -48,8 +54,13 @@ class UsbHidTransport(Transport):
     def open(self) -> None:
         dev = self._hid.device()
         try:
-            if self._path:
-                dev.open_path(self._path.encode() if isinstance(self._path, str) else self._path)
+            path = self._path
+            if not path:                       # ca in scripturile de test: se deschide pe calea exacta
+                found = list_devices(self._hid)
+                path = found[0].path if found else None
+            if path:
+                log.debug("deschid %s", path)
+                dev.open_path(path.encode() if isinstance(path, str) else path)
             else:
                 dev.open(VID, PID)
         except (OSError, ValueError) as e:
@@ -66,16 +77,29 @@ class UsbHidTransport(Transport):
     def send(self, frame: bytes) -> None:
         if self._dev is None:
             raise TransportError("transport inchis")
+        self._flush()
+        log.debug("TX %s", frame[:12].hex(" "))
+        self._t_tx = time.monotonic()
         n = self._dev.write(hid_report(frame))
         if n is not None and n < 0:
             raise TransportError("scriere HID esuata")
+
+    def _flush(self) -> None:
+        """Arunca raspunsurile ramase in coada (intarziate sau neasteptate)."""
+        for _ in range(16):
+            stale = self._dev.read(FRAME_LEN + 1, 0)
+            if not stale:
+                return
+            log.debug("arunc raspuns vechi %s", bytes(stale)[:8].hex(" "))
 
     def receive(self, timeout: float = 0.8) -> Reply:
         if self._dev is None:
             raise TransportError("transport inchis")
         data = self._dev.read(FRAME_LEN + 1, int(timeout * 1000))
         if not data:
+            log.debug("timeout dupa %.0f ms", (time.monotonic() - getattr(self, "_t_tx", 0)) * 1000)
             raise TransportTimeout("fara raspuns")
+        log.debug("RX %s (%.0f ms)", bytes(data)[:8].hex(" "), (time.monotonic() - getattr(self, "_t_tx", 0)) * 1000)
         try:
             return parse_reply(bytes(data))
         except ProtocolError as e:

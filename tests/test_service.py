@@ -128,3 +128,28 @@ def test_reconnect_after_transport_error():
         assert svc.snapshot().live["voltage"] == pytest.approx(3.299)
     finally:
         svc.shutdown()
+
+
+def test_isolated_timeout_does_not_disconnect():
+    from atorch.transports.base import TransportTimeout
+
+    class Hiccup(SimulatedTransport):
+        miss = 2
+        def send(self, frame):
+            if Hiccup.miss and frame[3] == 0x05 and self.sent:
+                Hiccup.miss -= 1
+                self.sent.append(frame)          # cererea se pierde, fara raspuns
+                return
+            super().send(frame)
+    events = []
+    sim = Hiccup(voltage_mv=3299)
+    svc = DeviceService(lambda: sim, poll_interval=0.02, settings_interval=0.05,
+                        reconnect_delay=0.05, write_pause=0.0)
+    svc.subscribe(lambda k, d: events.append((k, d.get("connected"))))
+    svc.start()
+    try:
+        time.sleep(3.5)
+        assert svc.snapshot().connected and svc.snapshot().seq > 3
+        assert ("status", False) not in events
+    finally:
+        svc.shutdown()

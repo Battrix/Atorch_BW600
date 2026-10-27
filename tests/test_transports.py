@@ -14,7 +14,10 @@ class FakeDevice:
     def open_path(self, p): self.opened = p
     def close(self): self.opened = None
     def write(self, data): self.written.append(bytes(data)); return len(data)
-    def read(self, n, timeout_ms): return list(self.replies.pop(0)) if self.replies else []
+    def read(self, n, timeout_ms):
+        if timeout_ms == 0:            # golirea cozii: nu exista raspunsuri vechi
+            return []
+        return list(self.replies.pop(0)) if self.replies else []
 
 
 class FakeHid:

@@ -19,7 +19,11 @@ def main(argv=None) -> int:
                     help="adresa de ascultare; 0.0.0.0 = accesibil din retea (fara autentificare!)")
     ap.add_argument("--port", type=int, default=8787)
     ap.add_argument("--no-browser", action="store_true")
+    ap.add_argument("--debug", action="store_true", help="jurnal detaliat: fiecare cadru USB cu timpul de raspuns")
     a = ap.parse_args(argv)
+    import logging
+    logging.basicConfig(level=logging.DEBUG if a.debug else logging.WARNING,
+                        format="%(asctime)s.%(msecs)03d %(name)s: %(message)s", datefmt="%H:%M:%S")
 
     if a.usb:
         from atorch.transports.usb import UsbHidTransport

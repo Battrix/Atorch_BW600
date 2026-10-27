@@ -79,6 +79,7 @@ class DeviceService:
         self.reconnect_delay, self.write_pause = reconnect_delay, write_pause
         self.verify_attempts = verify_attempts
         self.stop_attempts, self.stop_wait = 8, 0.8
+        self.max_misses = 5
         self._state = State()
         self._lock = threading.Lock()
         self._subs: list[Callable[[str, dict], None]] = []
@@ -199,13 +200,19 @@ class DeviceService:
                 return
 
     def _read_settings(self, t: Transport):
-        s = parse_settings(t.exchange(commands.read_settings(), want_type=0x03))
+        try:
+            s = parse_settings(t.exchange(commands.read_settings(), want_type=0x03))
+        except TransportTimeout:
+            raise TransportTimeout("fara raspuns la citirea configuratiei (03)") from None
         with self._lock:
             self._state.settings = dict(s.values)
         return s
 
     def _read_live(self, t: Transport):
-        return parse_live(t.exchange(commands.read_live(), want_type=0x05), self.profile)
+        try:
+            return parse_live(t.exchange(commands.read_live(), want_type=0x05), self.profile)
+        except TransportTimeout:
+            raise TransportTimeout("fara raspuns la citirea masuratorilor (05)") from None
 
     def _do_config(self, t: Transport, frames: list[bytes], verify: Callable) -> str:
         if self._read_live(t).running:
@@ -258,6 +265,7 @@ class DeviceService:
 
     def _loop(self, t: Transport) -> None:
         last_settings = 0.0
+        misses = 0
         self._read_settings(t)
         while not self._stop_evt.is_set():
             t0 = time.monotonic()
@@ -271,10 +279,21 @@ class DeviceService:
                     cmd.future.set_result(cmd.fn(t))
                 except (CommandRejected, CommandFailed) as e:
                     cmd.future.set_exception(e)
+                except TransportTimeout as e:           # un timeout izolat nu inchide conexiunea
+                    cmd.future.set_exception(CommandFailed(str(e)))
                 except (TransportError, ProtocolError, OSError) as e:
                     cmd.future.set_exception(CommandFailed(f"transport: {e}"))
                     raise
-            live = self._read_live(t)
+            try:
+                live = self._read_live(t)
+            except TransportTimeout as e:
+                misses += 1
+                log.warning("%s (%d/%d)", e, misses, self.max_misses)
+                if misses >= self.max_misses:
+                    raise
+                self._stop_evt.wait(self.poll_interval)
+                continue
+            misses = 0
             row = dict(live.values, running=live.running, t=time.time())
             with self._lock:
                 self._state.live = dict(live.values)
@@ -284,6 +303,9 @@ class DeviceService:
                 self._history.append(row)
             self._emit("sample", row)
             if time.monotonic() - last_settings >= self.settings_interval:
-                self._emit("settings", dict(self._read_settings(t).values))
+                try:
+                    self._emit("settings", dict(self._read_settings(t).values))
+                except TransportTimeout as e:
+                    log.warning("%s", e)
                 last_settings = time.monotonic()
             self._stop_evt.wait(max(0.0, self.poll_interval - (time.monotonic() - t0)))
