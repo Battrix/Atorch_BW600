@@ -15,7 +15,7 @@
 | 2 | Transport USB HID | `src/atorch/transports/usb` | **cod gata, netestat pe aparat** |
 | 3 | Transport Wi-Fi (Tuya local BW600-DK; BW150 după cercetare) | `src/atorch/transports/wifi` | de făcut |
 | 4 | Transport Bluetooth (BLE) | `src/atorch/transports/ble` | de făcut |
-| 5 | Serviciu de aparat (coadă, verificare, reconectare, capabilități) | `src/atorch/service` | de făcut |
+| 5 | Serviciu de aparat (coadă, verificare, reconectare, capabilități) | `src/atorch/service` | **cod gata, testat pe simulator; netestat pe aparat** |
 | 6 | Înregistrare date (sesiuni, SQLite, CSV) | `src/atorch/recorder` | de făcut |
 | 7 | Interfață de laborator | `ui/` | de făcut |
 | 8 | Rapoarte / certificate PDF | `src/atorch/reports` | de făcut |

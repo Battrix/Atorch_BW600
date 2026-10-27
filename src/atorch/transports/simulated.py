@@ -13,6 +13,11 @@ def make_reply(type_: int, payload: bytes, addr: int = 1) -> bytes:
     return (bytes([0xAA, 0x05, addr, type_]) + payload).ljust(64, b"\x00")
 
 
+_FLOAT_CMDS = {0x2A: "full_voltage", 0x2B: "full_current", 0x2C: "ocp", 0x2D: "opp",
+               0x2E: "ntc_otp", 0x2F: "mos_otp"}
+_LEVEL_CMDS = {0x22: "brightness", 0x23: "standby_brightness", 0x24: "standby_time"}
+
+
 class SimulatedTransport(Transport):
     """Imita un BW600 (layout sq6emm): tine mod, setpoint, cutoff si starea de rulare.
 
@@ -30,6 +35,10 @@ class SimulatedTransport(Transport):
         self.voltage_mv, self.layout = voltage_mv, layout
         self.mode, self.setpoint, self.cutoff = mode, setpoint, cutoff
         self.running = False
+        self.extra = {"full_voltage": 30.0, "full_current": 3.0, "ocp": 52.0, "opp": 610.0,
+                      "ntc_otp": 75.0, "mos_otp": 120.0}
+        self.levels = {"brightness": 9, "standby_brightness": 9, "standby_time": 59,
+                       "timer_hours": 0, "timer_minutes": 0}
         self.fixed_current_ma = current_ma
         self.ignore_writes, self.ignore_stop = ignore_writes, ignore_stop
         self.is_open = False
@@ -60,6 +69,12 @@ class SimulatedTransport(Transport):
             self.cutoff = struct.unpack(">f", frame[4:8])[0]
         elif 0x47 <= cmd <= 0x50 and not self.running:
             self.mode = cmd - 0x47
+        elif cmd in _FLOAT_CMDS:
+            self.extra[_FLOAT_CMDS[cmd]] = struct.unpack(">f", frame[4:8])[0]
+        elif cmd in _LEVEL_CMDS:
+            self.levels[_LEVEL_CMDS[cmd]] = frame[7]
+        elif cmd == 0x31:                       # timer bw600: d3=1 ore, d3=2 minute
+            self.levels["timer_hours" if frame[7] == 1 else "timer_minutes"] = frame[4]
 
     def send(self, frame: bytes) -> None:
         self.sent.append(frame)
@@ -77,7 +92,13 @@ class SimulatedTransport(Transport):
             pl = bytearray(58)
             struct.pack_into(">f", pl, 0, self.setpoint)
             struct.pack_into(">f", pl, 16, self.cutoff)
+            for k, off in (("full_voltage", 20), ("full_current", 24), ("ocp", 28),
+                           ("opp", 32), ("ntc_otp", 36), ("mos_otp", 40)):
+                struct.pack_into(">f", pl, off, self.extra[k])
             pl[44] = self.mode
+            for k, off in (("brightness", 46), ("standby_brightness", 47), ("standby_time", 48),
+                           ("timer_hours", 49), ("timer_minutes", 50)):
+                pl[off] = self.levels[k]
             self._q.append(make_reply(0x03, bytes(pl)))
         else:
             self._apply(frame)
