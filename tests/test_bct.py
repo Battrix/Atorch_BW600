@@ -140,7 +140,7 @@ def test_refuses_bad_starts(tmp_path):
 def test_seed_cells(tmp_path):
     st = TestStore(tmp_path)
     n = st.ensure_seed()
-    assert n >= 25 and st.ensure_seed() == 0          # o singura data
+    assert n >= 45 and st.ensure_seed() == 0          # o singura data
     items = {b["id"]: b for b in st.batteries()}
     b = items["seed-samsung-inr18650-25r"]
     assert b["rated_ah"] == 2.5 and b["empty_v"] == 2.5 and b["discharge_a"] == 0.5 and b["verified"]
@@ -150,3 +150,14 @@ def test_seed_cells(tmp_path):
     st.delete_battery("seed-samsung-inr18650-25r")
     assert st.ensure_seed() == 0                      # stergerea nu readuce celula
     assert st.import_seed() == 1                      # doar importul manual o readuce
+
+
+def test_seed_lfp_cells_respect_device_limits(tmp_path):
+    st = TestStore(tmp_path)
+    st.ensure_seed()
+    items = {b["id"]: b for b in st.batteries()}
+    lf = items["seed-eve-lf280k"]
+    assert lf["chemistry"] == "lifepo4" and lf["rated_ah"] == 280 and lf["verified"]
+    assert lf["discharge_a"] == 40.0 and "limitat" in lf["notes"]           # 0,2C = 56 A > limita aparatului
+    assert items["seed-calb-ca100"]["discharge_a"] == 20.0
+    assert {"seed-cornex-pf173-314a", "seed-calb-ca180", "seed-eve-mb31"} <= set(items)

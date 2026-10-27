@@ -80,7 +80,7 @@ async function loadCatalog(selectId) {
   const chem = $("f_chem"); chem.innerHTML = "";
   for (const [k, v] of Object.entries(c.chemistries)) chem.add(new Option(v.name, k));
   const pick = $("pick"); pick.length = 1;
-  const groups = {"18650": "Celule 18650", "21700": "Celule 21700", "": "Alte baterii"};
+  const groups = {"prismatic": "Celule LFP prismatice", "18650": "Celule 18650", "21700": "Celule 21700", "": "Alte baterii"};
   for (const [f, title] of Object.entries(groups)) {
     const og = document.createElement("optgroup"); og.label = title;
     for (const b of c.batteries.filter((x) => (x.form || "") === f)) og.append(new Option(`${b.model} (${b.nominal_v} V, ${b.rated_ah} Ah)`, b.id));

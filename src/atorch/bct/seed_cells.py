@@ -45,6 +45,30 @@ _CELLS = [
 ]
 
 
+# LFP prismatice 3,2 V: (brand, model, ah, v_taiere, i_max_continuu_A, ri_ac_mohm, verificat)
+# Ri = valoarea maxima AC 1 kHz din fisa/lista; i_max doar unde e in fisa. Incarcare 3,65 V la toate.
+_LFP = [
+    ("EVE", "LF50K", 50, 2.5, None, 0.7, False),
+    ("EVE", "LF90K", 90, 2.5, None, 0.5, False),
+    ("EVE", "LF100LA", 102, 2.5, None, 0.5, False),
+    ("EVE", "LF105", 105, 2.5, None, 0.32, False),
+    ("EVE", "LF125", 125, 2.5, None, 0.4, False),
+    ("EVE", "LF160", 160, 2.5, None, 0.21, False),
+    ("EVE", "LF173", 173, 2.5, None, 0.25, False),
+    ("EVE", "LF230", 230, 2.5, None, 0.25, False),
+    ("EVE", "LF280K", 280, 2.5, 280, 0.25, True),
+    ("EVE", "LF304", 304, 2.5, None, 0.16, False),
+    ("EVE", "MB30", 306, 2.5, None, 0.18, False),
+    ("EVE", "MB31", 314, 2.5, None, 0.18, False),
+    ("EVE", "LF560K", 560, 2.5, None, 0.25, False),
+    ("CALB", "L135F72 (CAM72)", 72, 2.5, 72, 0.5, True),
+    ("CALB", "CA100", 100, 2.5, 100, 0.6, True),
+    ("CALB", "CA180", 180, 2.5, 180, 0.5, True),
+    ("Cornex", "PF173-314A", 314, 2.5, None, None, False),
+]
+MAX_TEST_A = 40.0       # ramane sub limita de 50 A a aparatului BW600; curentul de test se poate schimba
+
+
 def seed_batteries() -> list[dict]:
     out = []
     for brand, model, form, ah, cut, imax, ri, ok in _CELLS:
@@ -58,6 +82,24 @@ def seed_batteries() -> list[dict]:
             "model": name, "brand": brand, "form": form, "chemistry": "nmc", "series": 1,
             "rated_ah": ah, "nominal_v": 3.6, "full_v": 4.2, "empty_v": cut,
             "discharge_a": round(ah * 0.2, 3), "pass_pct": 80.0, "ri_max_mohm": None,
+            "max_cont_a": imax, "ri_ac_mohm": ri, "verified": ok, "notes": notes, "seed": True,
+        })
+    for brand, model, ah, cut, imax, ri, ok in _LFP:
+        name = f"{brand} {model}"
+        i02 = ah * 0.2
+        notes = f"Celulă LFP prismatică; încărcare max. 3,65 V; tensiune de tăiere {cut:g} V"
+        if imax:
+            notes += f"; descărcare continuă max. {imax:g} A"
+        if ri:
+            notes += f"; rezistență internă AC (1 kHz) ≤ {ri} mΩ"
+        if i02 > MAX_TEST_A:
+            notes += f"; curent de test limitat la {MAX_TEST_A:g} A (0,2C ar fi {i02:g} A, peste limita aparatului)"
+        notes += ". " + ("Valori din fișa tehnică." if ok else "Valori uzuale publicate (capacitate/Ri din liste de distribuitori, tăiere 2,5 V uzuală): verifică fișa lotului.")
+        out.append({
+            "id": "seed-" + "".join(c if c.isalnum() else "-" for c in name.lower()).strip("-"),
+            "model": name, "brand": brand, "form": "prismatic", "chemistry": "lifepo4", "series": 1,
+            "rated_ah": float(ah), "nominal_v": 3.2, "full_v": 3.65, "empty_v": cut,
+            "discharge_a": round(min(i02, MAX_TEST_A), 3), "pass_pct": 80.0, "ri_max_mohm": None,
             "max_cont_a": imax, "ri_ac_mohm": ri, "verified": ok, "notes": notes, "seed": True,
         })
     return out

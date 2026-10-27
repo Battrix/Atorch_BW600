@@ -78,8 +78,8 @@ class TestStore:
             return len(new)
 
     def ensure_seed(self) -> int:
-        """O singura data pe folder de date: importa celulele predefinite (marker .seed-cells-v1)."""
-        marker = self.root / ".seed-cells-v1"
+        """O singura data pe folder de date: importa celulele predefinite (marker .seed-cells-v2)."""
+        marker = self.root / ".seed-cells-v2"
         if marker.exists():
             return 0
         n = self.import_seed()
