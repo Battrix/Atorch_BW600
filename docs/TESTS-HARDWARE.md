@@ -52,3 +52,18 @@ Celula LiFePO4 3.2 V / 300 Ah, 3.245 V la start. Rezultat script: OK (oprire con
 Neverificat: acuratetea curentului fata de un ampermetru extern (diferenta de 3% poate veni din calibrare:
 cal_current=0.919 pe aparat), ventilatorul sub sarcina, energia/capacitatea acumulate, comenzile de timer/cicluri.
 Pentru UI: curentul NU urmeaza instant setpoint-ul; afisarea trebuie sa tolereze ~4 s de rampa.
+
+## 2026-10-27 — Fotografii ale ecranului BW600-DK (fw V2.0.5)
+
+**Ecranul BCT** (Battery Cap_Test): este un ecran de tip CC cu indicator de baterie. Afiseaza `Model: CC`,
+`Is: 10.000A` (curentul setat), `Full Voltage 030.00V`, `Zero Voltage 002.80V`, `Bat: 01`, `Run 000:00:52`,
+mAh, Wh, V, A, W, `Mos.T`, `ETS.T`. Procentul = (V - Zero) / (Full - Zero): (3.24 - 2.80) / (30 - 2.80) = 1.6% -> afisat 001%.
+Concluzie: Full Voltage = comanda 0x2A, Zero Voltage = cutoff (0x29), Is = setpoint (0x21). Profilul CC al aplicatiei e corect in esenta.
+
+**Meniul principal** are doua pagini:
+- Pagina 1: Settings, CC, CV, CR, CP, BRT (Battery Res_Test), PT (Power Tester), CT (Cable_res Tester), CDC (Charge-discharge-3), CDCDC (-5), CDxn (-n), CC cu unda.
+- Pagina 2: variante cu pictograma de unda (CV, CR, CP, CDC, CDCDC), BCT, Dynamic load, "Developing" (loc rezervat).
+Modurile peste ID 9 (variantele cu unda, BCT, Dynamic load) nu sunt in sursele noastre. De aflat prin observare pasiva (`tools/probe_modes.py`).
+
+**ETS.T: Wait..** = senzorul extern de temperatura nu este conectat. Valoarea "sonda" citita (~35 C) este probabil nevalida cand senzorul lipseste.
+**HID** in bara de sus = conexiunea USB HID activa. **Run 000:00:52** = timp de rulare afisat pe aparat (nedecodificat in 05 inca).
