@@ -50,12 +50,24 @@ def validate(params, snapshot, limits):
         raise ValueError("double_start trebuie sa fie boolean")
     p["double_start"] = p.get("double_start", True)
     p["battery"] = str(p.get("battery", ""))[:160]
+    if not isinstance(p.get("manage_charger", False), bool):
+        raise ValueError("manage_charger trebuie sa fie boolean")
+    p["manage_charger"] = p.get("manage_charger", False)
+    if p["manage_charger"]:
+        p["charge_current"] = float(p.get("charge_current", 1))
+        if not math.isfinite(p["charge_current"]) or not 0 < p["charge_current"] <= 10:
+            raise ValueError("curentul OWON trebuie sa fie intre 0 si 10 A")
+        if p["full_v"] > 80 or p["full_v"] * p["charge_current"] > 500:
+            raise ValueError("limitele SPE8105 sunt 80 V si 500 W")
+        if p["end_current"] >= p["charge_current"]:
+            raise ValueError("curentul de terminare trebuie sa fie sub curentul de incarcare OWON")
     return p
 
 
 class CdcEngine:
-    def __init__(self, service, root=None, bct=None):
+    def __init__(self, service, root=None, bct=None, charger=None):
         self.svc, self.bct = service, bct
+        self.charger = charger
         self.root = Path(root or default_data_dir()) / "cdc"
         self.lock = threading.RLock()
         self.cancel = threading.Event()
@@ -91,20 +103,29 @@ class CdcEngine:
             if self.svc.profile.name != "bw600":
                 raise ValueError("CDC este disponibil momentan numai pe profilul BW600 verificat")
             p = validate(params, self.svc.snapshot(), self.svc.profile.limits)
+            if p["manage_charger"] and (self.charger is None or not self.charger.snapshot()["connected"]):
+                raise ValueError("conecteaza OWON SPE8105 inainte de pornirea CDC")
             self.cancel.clear()
             while not self.events.empty():
                 self.events.get_nowait()
             self.test = {"id": uuid.uuid4().hex, "state": "preparing", "phase": "waiting",
                          "started": time.time(), "device": self.svc.profile.title,
                          "params": p, "stages": [], "samples": [], "message": "Configurare si recitire",
-                         "stop_confirmed": False, "data_gaps": 0, "elapsed": 0}
+                         "stop_confirmed": False, "charger_stop_confirmed": None,
+                         "data_gaps": 0, "elapsed": 0}
             self.thread = threading.Thread(target=self._run, daemon=True, name="atorch-cdc")
             self.thread.start()
             return self.test["id"]
 
     def stop(self):
         self.cancel.set()
-        return self.svc.stop_load()
+        future = self.svc.stop_load()
+        if self.active() and self.test["params"].get("manage_charger"):
+            try:
+                self.charger.output(False)
+            except Exception:
+                pass  # repeated and reported by finalization
+        return future
 
     def _save(self):
         with self.lock:
@@ -148,6 +169,12 @@ class CdcEngine:
             for key, val in (("setpoint", p["current"]), ("cutoff", p["empty_v"]),
                              ("full_voltage", p["full_v"]), ("full_current", p["end_current"])):
                 self._command(self.svc.set_value(key, val))
+            if p["manage_charger"]:
+                self.charger.configure(p["full_v"], p["charge_current"])
+                if self.cancel.is_set():
+                    raise ValueError("test oprit inainte de activarea sursei")
+                self.test["charger"] = self.charger.snapshot()
+                self.charger.output(True)
             self._command(self.svc.start_cdc(self.cancel, p["double_start"]))
             began = time.monotonic()
             last_rx = began
@@ -167,6 +194,16 @@ class CdcEngine:
                     continue
                 phase = phase_of(row)
                 v, i, w = (row.get(k, 0) for k in ("voltage", "current", "power"))
+                if p["manage_charger"]:
+                    ch = self.charger.snapshot()
+                    if not ch["connected"] or time.time()-ch["updated"] > 5:
+                        raise ValueError("conexiune OWON pierduta; oprire CDC")
+                    if not ch["output"]:
+                        raise ValueError("iesirea OWON este oprita in timpul testului")
+                    if ch["voltage"] > p["full_v"] + .03:
+                        raise ValueError("tensiune OWON peste pragul full")
+                    row = dict(row, charger_voltage=ch["voltage"], charger_current=ch["current"],
+                               charger_power=ch["power"], charger_output=ch["output"], charger_updated=ch["updated"])
                 if v > p["full_v"] + 0.02:
                     raise ValueError("tensiune peste pragul full; oprire ceruta")
                 if phase in ("charge", "discharge"):
@@ -212,14 +249,24 @@ class CdcEngine:
         finally:
             with self.lock:
                 self.test["state"] = "stopping"
+            stop_future = self.svc.stop_load()
+            charger_ok = None
+            if p["manage_charger"]:
+                try:
+                    self.charger.output(False)
+                    charger_ok = True
+                except Exception:
+                    charger_ok = False
+                    message += "; OPRIRE OWON NECONFIRMATA"
             try:
-                self.svc.stop_load().result(15)
+                stop_future.result(15)
                 stop_ok = True
             except Exception:
                 stop_ok = False
             with self.lock:
-                self.test.update(state=state if stop_ok else "error", phase="idle" if stop_ok else "unknown",
+                self.test.update(state=state if stop_ok and charger_ok is not False else "error", phase="idle" if stop_ok else "unknown",
                                  stop_confirmed=stop_ok, finished=time.time(),
+                                 charger_stop_confirmed=charger_ok,
                                  message=message if stop_ok else message+"; OPRIRE NECONFIRMATA")
             try:
                 self._save()

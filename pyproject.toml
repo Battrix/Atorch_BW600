@@ -11,6 +11,7 @@ dependencies = []
 
 [project.optional-dependencies]
 usb = ["hidapi>=0.14"]
+charger = ["pyserial>=3.5"]
 report = ["reportlab>=4"]
 wifi = ["tinytuya>=1.13"]
 ble = ["bleak>=0.22"]

@@ -16,7 +16,7 @@ def app():
     svc = DeviceService(lambda: sim, poll_interval=0.02, settings_interval=0.05,
                         reconnect_delay=0.05, write_pause=0.0)
     svc.start()
-    srv = create_server(svc, "127.0.0.1", 0)
+    srv = create_server(svc, "127.0.0.1", 0, link="simulat")
     threading.Thread(target=srv.serve_forever, daemon=True).start()
     base = f"http://127.0.0.1:{srv.server_address[1]}"
     for _ in range(100):
@@ -104,6 +104,18 @@ def test_origin_check(app):
     assert st == 403
     host = base.removeprefix("http://")
     assert post(base, "/api/power", {"on": False}, {"Origin": f"http://{host}"})[0] == 200
+
+
+def test_charger_api(app):
+    base, _ = app
+    assert not json.loads(get(base, '/api/charger/status')[1])['connected']
+    assert json.loads(get(base, '/api/charger/ports')[1])[0]['port'] == 'SIMULATOR'
+    assert post(base, '/api/charger/connect', {'port': 'SIMULATOR'})[0] == 200
+    r = post(base, '/api/charger/configure', {'voltage': 4.1, 'current': 1})[1]['charger']
+    assert r['set_voltage'] == 4.1 and not r['output']
+    assert post(base, '/api/charger/output', {'on': True})[1]['charger']['output']
+    assert post(base, '/api/charger/output', {'on': False})[0] == 200
+    assert post(base, '/api/charger/disconnect', {})[0] == 200
 
 
 def test_sse_stream(app):

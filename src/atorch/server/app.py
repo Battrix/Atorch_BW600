@@ -18,6 +18,7 @@ from atorch.bct import BctEngine, BctError, TestStore
 from atorch.bct.catalog import CHEMISTRIES, BatteryError, derive_battery
 from atorch.service.device import CommandFailed, CommandRejected, DeviceService
 from atorch.cdc import CdcEngine
+from atorch.owon import OwonSupply
 
 UI_DIR = Path(__file__).resolve().parent.parent / "ui"
 CMD_TIMEOUT = 12.0
@@ -68,10 +69,19 @@ def _state_payload(service: DeviceService, link: str) -> dict:
 
 
 def make_handler(service: DeviceService, hub: Hub, link: str, engine: BctEngine | None = None):
-    cdc = CdcEngine(service, root=engine.store.root if engine else None, bct=engine)
+    charger = OwonSupply(simulated=link == "simulat")
+    cdc = CdcEngine(service, root=engine.store.root if engine else None, bct=engine, charger=charger)
     control_lock = threading.RLock()
+
+    def stop_cdc():
+        managed = cdc.status().get("params", {}).get("manage_charger", False)
+        cdc.stop().result(CMD_TIMEOUT)
+        ch = charger.snapshot()
+        if managed and (not ch["connected"] or ch["output"]):
+            raise CommandFailed("BW600 oprit, dar oprirea OWON nu este confirmata")
     class Handler(BaseHTTPRequestHandler):
         cdc_engine = cdc
+        charger_service = charger
         server_version = "AtorchLab/0.1"
         protocol_version = "HTTP/1.1"
 
@@ -108,6 +118,10 @@ def make_handler(service: DeviceService, hub: Hub, link: str, engine: BctEngine 
                 return self._json(_state_payload(service, link))
             if path == "/api/history":
                 return self._json(service.history()[-3600:])
+            if path == "/api/charger/status":
+                return self._json(charger.snapshot())
+            if path == "/api/charger/ports":
+                return self._json(charger.ports())
             if path == "/api/cdc/status":
                 return self._json(cdc.status(samples=True))
             if path == "/api/cdc/history":
@@ -245,13 +259,36 @@ def make_handler(service: DeviceService, hub: Hub, link: str, engine: BctEngine 
             except (ValueError, json.JSONDecodeError):
                 return self._json({"ok": False, "error": "JSON invalid"}, 400)
             path = urlparse(self.path).path
+            if path.startswith("/api/charger/"):
+                try:
+                    with control_lock:
+                        if cdc.active() or engine is not None and engine.active():
+                            if path == "/api/charger/output" and body.get("on") is False:
+                                cdc.stop().result(CMD_TIMEOUT)
+                                charger.output(False)
+                                return self._json({"ok": True, "charger": charger.snapshot()})
+                            return self._json({"error": "opreste testul inainte de controlul manual OWON"}, 409)
+                        if path == "/api/charger/connect":
+                            result = charger.connect(str(body["port"]))
+                        elif path == "/api/charger/disconnect":
+                            charger.disconnect()
+                            result = charger.snapshot()
+                        elif path == "/api/charger/configure":
+                            result = charger.configure(body["voltage"], body["current"])
+                        elif path == "/api/charger/output":
+                            result = charger.output(body["on"])
+                        else:
+                            return self._json({"error": "comanda necunoscuta"}, 404)
+                        return self._json({"ok": True, "charger": result})
+                except (ValueError, KeyError, TypeError, OSError, CommandFailed, CommandRejected, FutureTimeout) as e:
+                    return self._json({"error": str(e)}, 409)
             if path.startswith("/api/cdc/"):
                 try:
                     with control_lock:
                         if path == "/api/cdc/start":
                             return self._json({"ok": True, "id": cdc.start(body)})
                         if path == "/api/cdc/stop":
-                            cdc.stop().result(CMD_TIMEOUT)
+                            stop_cdc()
                             return self._json({"ok": True, "message": "oprire confirmata"})
                     return self._json({"error": "comanda necunoscuta"}, 404)
                 except (ValueError, KeyError, TypeError, CommandFailed, CommandRejected, FutureTimeout) as e:
@@ -259,7 +296,7 @@ def make_handler(service: DeviceService, hub: Hub, link: str, engine: BctEngine 
             if cdc.active():
                 if path == "/api/power" and body.get("on") is False:
                     try:
-                        cdc.stop().result(CMD_TIMEOUT)
+                        stop_cdc()
                         return self._json({"ok": True, "message": "oprire confirmata"})
                     except Exception as e:
                         return self._json({"error": str(e)}, 502)
@@ -321,4 +358,5 @@ def create_server(service: DeviceService, host: str = "127.0.0.1", port: int = 8
 
     srv = Server((host, port), make_handler(service, hub, link, engine))
     srv.cdc = srv.RequestHandlerClass.cdc_engine
+    srv.charger = srv.RequestHandlerClass.charger_service
     return srv

@@ -56,6 +56,10 @@ Vezi `docs/BCT.md`. Instalare: `py -m pip install -e .[usb,report]`, apoi porne�
 
 Pagina „Ciclu CDC” configurează programul nativ BW600, monitorizează încărcarea/descărcarea, salvează etapele și oferă CSV și raport de tipărit/PDF. Vezi [docs/CDC.md](docs/CDC.md) pentru parametri, pornirea dublă și limitele validării.
 
+Control opțional al încărcătorului **OWON SPE8105 prin USB**: tensiune, limită de curent, pornire/oprire și grafice V/A/W ale sursei. Instalare: `py -m pip install -e .[usb,charger]`. Vezi [conectare și validare OWON](docs/OWON-SPE8105.md). Citirile au fost verificate pe sursa reală; ciclul complet cu sursa rămâne de validat pe baterie.
+
+![CDC cu OWON — ciclu demonstrativ în simulator](docs/images/cdc-owon.jpg)
+
 ![Ciclu CDC complet în simulator](docs/images/cdc.jpg)
 
 Captură demonstrativă din simulator; integrarea paginii nu a pornit aparatul real.

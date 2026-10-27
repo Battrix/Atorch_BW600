@@ -35,6 +35,8 @@ def test_validate_rejects_nonfinite_and_bad_voltage():
             validate(dict(p, **{key:float('nan')}),s,BW600_LIMITS)
     with pytest.raises(ValueError):
         validate(dict(p, empty_v=4.2),s,BW600_LIMITS)
+    with pytest.raises(ValueError):
+        validate(dict(p,manage_charger=True,charge_current=.05),s,BW600_LIMITS)
 
 
 def test_double_start_spacing_and_cancel():
@@ -101,3 +103,23 @@ def test_cdc_persists_stages_and_stop(tmp_path):
     finally:
         e.stop()
         svc.shutdown()
+
+
+def test_managed_owon_switches_off_on_stop(tmp_path):
+    from atorch.owon import OwonSupply
+    sim=SimulatedTransport(voltage_mv=3520,mode=0,cutoff=3.5)
+    svc=DeviceService(lambda:sim,poll_interval=.02,settings_interval=.03,write_pause=0)
+    ch=OwonSupply(simulated=True);ch.connect('SIMULATOR')
+    svc.start();e=CdcEngine(svc,root=tmp_path,charger=ch)
+    try:
+        wait_for(lambda:bool(svc.snapshot().live))
+        tid=e.start(dict(current=1,empty_v=3.5,full_v=4.1,end_current=.1,manage_charger=True,charge_current=1,double_start=False))
+        wait_for(lambda:ch.snapshot()['output'])
+        e.stop().result(4)
+        wait_for(lambda:not e.active())
+        assert not ch.snapshot()['output'] and not sim.running
+        t=e.load(tid)
+        assert t['charger_stop_confirmed']
+        assert ch.snapshot()['set_voltage']==4.1
+    finally:
+        e.stop();svc.shutdown();ch.disconnect()

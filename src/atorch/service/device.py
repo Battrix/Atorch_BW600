@@ -287,7 +287,18 @@ class DeviceService:
     def _loop(self, t: Transport) -> None:
         last_settings = 0.0
         misses = 0
-        self._read_settings(t)
+        # Pe BW600 prima cerere 03 poate ramane fara raspuns dupa redeschiderea
+        # HID. O citire 05 inainte de 03 a recuperat legatura pe aparatul real.
+        # Incercarile sunt exclusiv citiri si nu pornesc sarcina.
+        for attempt in range(3):
+            try:
+                self._read_live(t)
+                self._read_settings(t)
+                break
+            except TransportTimeout:
+                if attempt == 2:
+                    raise
+                self._stop_evt.wait(0.15)
         while not self._stop_evt.is_set():
             t0 = time.monotonic()
             # comenzi in asteptare (STOP are prioritatea 0)

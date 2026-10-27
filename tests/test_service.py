@@ -153,3 +153,27 @@ def test_isolated_timeout_does_not_disconnect():
         assert ("status", False) not in events
     finally:
         svc.shutdown()
+def test_startup_reads_live_before_settings():
+    from atorch.transports.simulated import SimulatedTransport
+    from atorch.service.device import DeviceService
+    import time
+    class NeedsLiveFirst(SimulatedTransport):
+        primed = False
+        def send(self, frame):
+            if frame[3] == 5:
+                self.primed = True
+            if frame[3] == 3 and not self.primed:
+                return
+            super().send(frame)
+    sim = NeedsLiveFirst()
+    svc = DeviceService(lambda: sim, poll_interval=.02, write_pause=0)
+    svc.start()
+    try:
+        end = time.monotonic()+3
+        while time.monotonic() < end and not svc.snapshot().settings:
+            time.sleep(.02)
+        assert svc.snapshot().settings
+        assert sim.sent[0][3] == 5
+        assert not any(f[3] == 0x25 for f in sim.sent)
+    finally:
+        svc.shutdown()

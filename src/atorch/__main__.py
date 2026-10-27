@@ -56,6 +56,10 @@ def main(argv=None) -> int:
         srv.cdc.stop()
         if srv.cdc.thread:
             srv.cdc.thread.join(18)
+        try:
+            srv.charger.disconnect()
+        except Exception:
+            logging.exception("oprirea/deconectarea OWON nu a fost confirmata")
         engine.stop()
         svc.stop_load()          # la inchidere, sarcina se opreste
         import time
