@@ -25,3 +25,27 @@ select,input[type=text],input[type=number]{width:100%;padding:8px 9px;border:1px
 .inp input[type=number]{width:100%}
 .pdfbtn{display:block;width:100%;margin-top:10px;padding:11px;border:1px solid var(--accent);border-radius:8px;background:var(--accent);color:#fff;font-weight:650;font-size:16px}
 .pdfbtn:disabled{background:var(--panel-hi);color:#8a959b;border-color:var(--panel-edge);cursor:not-allowed}
+
+/* ---- aspect compact: ecranul cat mai spre stanga, panoul din dreapta scurt ---- */
+.layout.wide{max-width:none;padding:10px 12px;grid-template-columns:minmax(0,1fr) 350px;gap:12px}
+@media (max-width:1020px){.layout.wide{grid-template-columns:1fr}}
+.layout.wide .screen{padding:10px}
+.layout.wide .readouts{padding:10px 14px}
+.layout.wide .charts canvas{height:clamp(190px,27vh,300px)}
+.panel h3{margin:12px 0 4px}
+.panel h3.first{margin-top:2px}
+.panel .field{margin:4px 0}
+.panel .field>span:first-child{font-size:12.5px;margin-bottom:2px}
+.panel select,.panel input[type=text],.panel input[type=number]{padding:6px 8px}
+.panel .inp input{padding:6px 8px}
+.panel .two{gap:8px}
+.panel .go,.panel .halt{padding:12px 10px;font-size:18px}
+.panel .summary{margin:6px 2px 8px}
+.panel .pdfbtn{margin-top:8px;padding:8px}
+.histbox{margin-top:10px;background:var(--lcd);border-radius:6px;padding:8px 10px}
+.histbox h3{color:var(--lcd-dim);font-size:12.5px;font-weight:500;margin:0 0 6px}
+.histbox .hist{margin:0;max-height:170px;background:#0f171b;border:1px solid #26323a}
+.histbox .hist li{color:var(--lcd-ink);border-bottom-color:#1f2b31}
+.histbox .hist li:hover{background:#18242a}
+.histbox .hist li.empty{color:var(--lcd-dim)}
+.histbox .hist b.pos{color:#7ff0a4}.histbox .hist b.neg{color:#ff9b91}.histbox .hist b.nef{color:#f4d03f}
