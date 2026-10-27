@@ -1,0 +1,23 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "atorch"
+version = "0.1.0"
+description = "Interfata PC pentru ATORCH BW600 / BW150 (Battrix)"
+requires-python = ">=3.10"
+dependencies = []
+
+[project.optional-dependencies]
+usb = ["hidapi>=0.14"]
+wifi = ["tinytuya>=1.13"]
+ble = ["bleak>=0.22"]
+dev = ["pytest>=8"]
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["src"]

@@ -11,7 +11,7 @@
 
 | # | Modul | Director | Stare |
 |---|---|---|---|
-| 1 | Nucleu de protocol (BW150, BW600) | `src/atorch/protocol` | de făcut |
+| 1 | Nucleu de protocol (BW150, BW600) | `src/atorch/protocol` | **gata (v0.1, teste pe cadre sintetice)** |
 | 2 | Transport USB HID | `src/atorch/transports/usb` | de făcut |
 | 3 | Transport Wi-Fi (Tuya local BW600-DK; BW150 după cercetare) | `src/atorch/transports/wifi` | de făcut |
 | 4 | Transport Bluetooth (BLE) | `src/atorch/transports/ble` | de făcut |
