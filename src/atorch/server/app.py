@@ -12,8 +12,10 @@ import threading
 from concurrent.futures import TimeoutError as FutureTimeout
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
-from urllib.parse import urlparse
+from urllib.parse import parse_qs, urlparse
 
+from atorch.bct import BctEngine, BctError, TestStore
+from atorch.bct.catalog import CHEMISTRIES, BatteryError, derive_battery
 from atorch.service.device import CommandFailed, CommandRejected, DeviceService
 
 UI_DIR = Path(__file__).resolve().parent.parent / "ui"
@@ -64,7 +66,7 @@ def _state_payload(service: DeviceService, link: str) -> dict:
     }
 
 
-def make_handler(service: DeviceService, hub: Hub, link: str):
+def make_handler(service: DeviceService, hub: Hub, link: str, engine: BctEngine | None = None):
     class Handler(BaseHTTPRequestHandler):
         server_version = "AtorchLab/0.1"
         protocol_version = "HTTP/1.1"
@@ -104,9 +106,59 @@ def make_handler(service: DeviceService, hub: Hub, link: str):
                 return self._json(service.history()[-3600:])
             if path == "/api/stream":
                 return self._stream()
+            if path.startswith("/api/bct/"):
+                return self._bct_get(path, parse_qs(urlparse(self.path).query))
             if path in ("/", "/index.html"):
                 return self._file("index.html")
             return self._file(path.lstrip("/"))
+
+        # ---- BCT ---------------------------------------------------------
+        def _bct_get(self, path, qs):
+            if engine is None:
+                return self._json({"error": "BCT indisponibil"}, 404)
+            store = engine.store
+            if path == "/api/bct/status":
+                return self._json(engine.status())
+            if path == "/api/bct/catalog":
+                return self._json({"chemistries": CHEMISTRIES, "batteries": store.batteries(),
+                                   "tests": store.list_tests()})
+            if path == "/api/bct/test":
+                tid = (qs.get("id") or [""])[0]
+                try:
+                    t = engine.get_test(tid)
+                except (KeyError, FileNotFoundError, ValueError):
+                    return self._json({"error": "test negasit"}, 404)
+                mx = int((qs.get("max") or ["1200"])[0])
+                smp = t.get("samples", [])
+                if len(smp) > mx > 1:
+                    step = len(smp) / mx
+                    smp = [smp[int(i * step)] for i in range(mx - 1)] + [smp[-1]]
+                return self._json(dict(t, samples=smp))
+            return self._json({"error": "negasit"}, 404)
+
+        def _bct_post(self, path, b):
+            if engine is None:
+                return {"ok": False, "error": "BCT indisponibil"}, 404
+            store = engine.store
+            try:
+                if path == "/api/bct/start":
+                    extra = {k: str(b.get("extra", {}).get(k, ""))[:200]
+                             for k in ("client", "serial", "operator", "notes")}
+                    tid = engine.start(b["battery"], extra)
+                    return {"ok": True, "message": "test pornit", "id": tid}, 200
+                if path == "/api/bct/stop":
+                    engine.stop()
+                    return {"ok": True, "message": "oprire cerută"}, 200
+                if path == "/api/bct/derive":
+                    return {"ok": True, "battery": derive_battery(b["chemistry"], int(b["series"]), float(b["rated_ah"]),
+                                                                   model=str(b.get("model", "")))}, 200
+                if path == "/api/bct/battery":
+                    return {"ok": True, "battery": store.save_battery(b["battery"])}, 200
+                if path == "/api/bct/battery/delete":
+                    return {"ok": store.delete_battery(str(b["id"]))}, 200
+            except (BctError, BatteryError) as e:
+                return {"ok": False, "error": str(e)}, 409
+            return {"ok": False, "error": "comanda necunoscuta"}, 404
 
         def _stream(self):
             self.send_response(200)
@@ -148,6 +200,9 @@ def make_handler(service: DeviceService, hub: Hub, link: str):
             except (ValueError, json.JSONDecodeError):
                 return self._json({"ok": False, "error": "JSON invalid"}, 400)
             path = urlparse(self.path).path
+            if path.startswith("/api/bct/"):
+                obj, code = self._bct_post(path, body)
+                return self._json(obj, code)
             try:
                 fut = self._dispatch(path, body)
             except (KeyError, TypeError, ValueError):
@@ -181,8 +236,10 @@ def make_handler(service: DeviceService, hub: Hub, link: str):
 
 
 def create_server(service: DeviceService, host: str = "127.0.0.1", port: int = 8787,
-                  link: str = "usb") -> ThreadingHTTPServer:
+                  link: str = "usb", engine: BctEngine | None = None) -> ThreadingHTTPServer:
     hub = Hub(service)
+    if engine is not None:
+        engine.subscribe(lambda kind, data: hub._on_event(kind, data))
 
     class Server(ThreadingHTTPServer):
         daemon_threads = True
@@ -192,5 +249,5 @@ def create_server(service: DeviceService, host: str = "127.0.0.1", port: int = 8
             if not isinstance(sys.exc_info()[1], (ConnectionError, OSError)):
                 super().handle_error(request, client_address)
 
-    srv = Server((host, port), make_handler(service, hub, link))
+    srv = Server((host, port), make_handler(service, hub, link, engine))
     return srv

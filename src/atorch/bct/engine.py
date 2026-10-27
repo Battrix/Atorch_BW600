@@ -81,6 +81,13 @@ class BctEngine:
         with self._lock:
             return dict(self._test) if self._test else None
 
+    def get_test(self, tid: str) -> dict:
+        """Testul in curs (cu esantioane) sau unul salvat. KeyError daca nu exista."""
+        with self._lock:
+            if self._test and self._test["id"] == tid:
+                return dict(self._test, samples=list(self._test["samples"]))
+        return self.store.load_test(tid)
+
     def active(self) -> bool:
         return self._status["state"] in ACTIVE
 

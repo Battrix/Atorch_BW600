@@ -82,3 +82,5 @@ h3{font-size:14px;margin:18px 0 6px;font-weight:650}
 @media (prefers-reduced-motion:no-preference){.lamp{transition:background .2s}}
 
 .halt.mini{padding:6px 16px;font-size:15px;box-shadow:0 2px 0 rgba(0,0,0,.28)}
+.navlink{color:var(--accent);text-decoration:none;font-weight:600;padding:4px 10px;border:1px solid var(--panel-edge);border-radius:6px;background:var(--panel-hi)}
+.navlink:hover{background:#fff}

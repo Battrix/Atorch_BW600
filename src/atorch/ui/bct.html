@@ -1,0 +1,95 @@
+<!doctype html>
+<html lang="ro">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Atorch Lab — Test capacitate (BCT)</title>
+<link rel="stylesheet" href="app.css">
+<link rel="stylesheet" href="bct.css">
+</head>
+<body>
+<header class="bar">
+  <div class="id">
+    <a class="navlink" href="index.html">← Panou</a>
+    <span class="model">Test de capacitate baterie (BCT)</span>
+    <span id="devTitle" class="chip">—</span>
+  </div>
+  <div class="link-state"><span id="lamp" class="lamp"></span><span id="linkText">Se conectează…</span><button id="stopTop" class="halt mini" title="Oprește testul și sarcina">Stop</button></div>
+</header>
+
+<main class="layout">
+  <section class="screen" aria-label="Ecran test">
+    <div class="readouts">
+      <div class="ro v"><span class="lbl">Tensiune baterie</span><span class="val" id="rV">--.---</span><span class="unit">V</span></div>
+      <div class="ro a"><span class="lbl">Curent descărcare</span><span class="val" id="rA">--.---</span><span class="unit">A</span></div>
+      <div class="ro w"><span class="lbl">Capacitate descărcată</span><span class="val" id="rAh">-.---</span><span class="unit">Ah</span></div>
+    </div>
+    <div id="banner" class="banner" hidden></div>
+    <dl class="sec">
+      <div><dt>Timp scurs</dt><dd id="sT">—</dd></div>
+      <div><dt>Energie</dt><dd id="sWh">—</dd></div>
+      <div><dt>Nivel estimat</dt><dd id="sSoc">—</dd></div>
+      <div><dt>Rezistență internă</dt><dd id="sRi">—</dd></div>
+      <div><dt>Putere</dt><dd id="sW">—</dd></div>
+      <div><dt>MOSFET</dt><dd id="sTm">—</dd></div>
+      <div><dt>Sondă</dt><dd id="sTp">—</dd></div>
+    </dl>
+    <div class="charts">
+      <figure><figcaption>Tensiune în timp</figcaption><canvas id="cV"></canvas></figure>
+      <figure><figcaption>Curent în timp</figcaption><canvas id="cA"></canvas></figure>
+      <figure><figcaption>Curba de descărcare (tensiune / Ah)</figcaption><canvas id="cD"></canvas></figure>
+      <figure><figcaption>Temperatură MOSFET</figcaption><canvas id="cT"></canvas></figure>
+    </div>
+  </section>
+
+  <aside class="panel" aria-label="Test">
+    <div class="runrow">
+      <button id="start" class="go">Start test</button>
+      <button id="stop" class="halt">Stop</button>
+    </div>
+    <p class="summary" id="msg">—</p>
+
+    <fieldset id="cfg">
+      <legend>Baterie</legend>
+      <label class="field"><span>Din baza de date</span>
+        <select id="pick"><option value="">— baterie nouă —</option></select></label>
+      <label class="field"><span>Model / denumire</span><input id="f_model" type="text" maxlength="80"></label>
+      <div class="two">
+        <label class="field"><span>Chimie</span><select id="f_chem"></select></label>
+        <label class="field"><span>Elemente în serie</span><input id="f_series" type="number" min="1" max="100" step="1" value="1"></label>
+      </div>
+      <label class="field"><span>Capacitate declarată</span>
+        <span class="inp"><input id="f_rated" type="number" step="any" min="0"><b>Ah</b><button id="calc" title="Calculează tensiunile din chimie și număr de elemente">Calculează</button></span></label>
+
+      <div class="two">
+        <label class="field"><span>Tensiune nominală</span><span class="inp"><input id="f_nominal" type="number" step="any"><b>V</b></span></label>
+        <label class="field"><span>Tensiune full (încărcată)</span><span class="inp"><input id="f_full" type="number" step="any"><b>V</b></span></label>
+      </div>
+      <div class="two">
+        <label class="field"><span>Tensiune descărcată</span><span class="inp"><input id="f_empty" type="number" step="any"><b>V</b></span></label>
+        <label class="field"><span>Curent descărcare (CC)</span><span class="inp"><input id="f_cur" type="number" step="any"><b>A</b></span></label>
+      </div>
+      <div class="two">
+        <label class="field"><span>Acceptat dacă ≥</span><span class="inp"><input id="f_pass" type="number" step="any" value="80"><b>%</b></span></label>
+        <label class="field"><span>Rezistență internă max.</span><span class="inp"><input id="f_ri" type="number" step="any" placeholder="opțional"><b>mΩ</b></span></label>
+      </div>
+      <div class="rowbtn"><button id="save">Salvează în baza de date</button><button id="del">Șterge</button></div>
+
+      <h3>Date pentru certificat</h3>
+      <label class="field"><span>Client</span><input id="f_client" type="text" maxlength="120"></label>
+      <div class="two">
+        <label class="field"><span>Serie / identificare</span><input id="f_serial" type="text" maxlength="80"></label>
+        <label class="field"><span>Operator</span><input id="f_operator" type="text" maxlength="80"></label>
+      </div>
+      <label class="field"><span>Observații</span><input id="f_notes" type="text" maxlength="200"></label>
+    </fieldset>
+    <p class="locknote" id="lockNote" hidden>Testul rulează. Parametrii sunt blocați.</p>
+
+    <h3>Teste anterioare</h3>
+    <ol class="hist" id="hist"><li class="empty">Niciun test salvat.</li></ol>
+    <ol class="log" id="log" aria-live="polite"></ol>
+  </aside>
+</main>
+<script src="bct.js"></script>
+</body>
+</html>

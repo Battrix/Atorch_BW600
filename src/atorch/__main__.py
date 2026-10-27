@@ -29,13 +29,17 @@ def main(argv=None) -> int:
         from atorch.transports.usb import UsbHidTransport
         factory, link = (lambda: UsbHidTransport()), "usb"
     else:
-        from atorch.transports.simulated import SimulatedTransport
-        sim = SimulatedTransport(voltage_mv=3299, mode=1, setpoint=5.0, cutoff=3.0)
+        from atorch.transports.simulated import SimCell, SimulatedTransport
+        # celula de demonstratie (0,02 Ah): un test BCT dureaza cateva zeci de secunde
+        sim = SimulatedTransport(voltage_mv=3400, mode=1, setpoint=5.0, cutoff=3.0,
+                                 cell=SimCell(capacity_ah=0.02, v_full=3.4, v_empty=3.0, ri_ohm=0.004))
         factory, link = (lambda: sim), "simulat"
 
     svc = DeviceService(factory, profile=a.profile)
     svc.start()
-    srv = create_server(svc, a.host, a.port, link)
+    from atorch.bct import BctEngine, TestStore
+    engine = BctEngine(svc, TestStore())
+    srv = create_server(svc, a.host, a.port, link, engine)
     url = f"http://{'127.0.0.1' if a.host == '0.0.0.0' else a.host}:{srv.server_address[1]}/"
     print(f"Atorch Lab: {url}   (Ctrl+C pentru oprire)")
     if a.host not in ("127.0.0.1", "localhost"):
@@ -47,6 +51,7 @@ def main(argv=None) -> int:
     except KeyboardInterrupt:
         pass
     finally:
+        engine.stop()
         svc.stop_load()          # la inchidere, sarcina se opreste
         import time
         time.sleep(1.0)
