@@ -4,6 +4,18 @@ Interfață PC tehnică (stil instrument de laborator) pentru sarcinile electron
 
 Proiect Battrix Energy.
 
+## Interfața aplicației
+
+Panou de laborator cu afișaje V/A/W, grafice simultane și configurarea sarcinii și protecțiilor.
+
+![Panou ATORCH Lab](docs/images/dashboard.jpg)
+
+Test de capacitate BCT cu monitorizare live, curba de descărcare, datele bateriei și acces la certificatul PDF.
+
+![Test de capacitate BCT](docs/images/bct-test.jpg)
+
+Capturi realizate în modul **simulator**, cu date demonstrative; nu reprezintă rezultatele unei baterii reale.
+
 ## Obiective
 
 - Conexiune prin **Wi-Fi** (preferat), **Bluetooth** și **USB** — toate trei funcționale.
