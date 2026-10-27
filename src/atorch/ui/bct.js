@@ -112,6 +112,7 @@ function renderStatus() {
   $("start").disabled = !B.connected || act;
   $("cfg").disabled = act;
   $("lockNote").hidden = !act;
+  $("pdf").disabled = !(s.result && s.id && !act);
   setText("msg", s.message || (B.connected ? "Alege bateria și apasă Start test." : "—"));
   setText("rAh", act || s.result ? fmt(s.ah, 3) : "-.---");
   setText("sT", act || s.result ? hms(s.elapsed) : "—");
@@ -195,6 +196,15 @@ $("start").onclick = async () => {
   const r = await api("/api/bct/start", {battery: b, extra});
   if (!r.ok) { log("Start: " + r.error, true); return; }
   log("Test pornit."); B.curId = r.id; B.test = {samples: []}; await showTest(r.id);
+};
+$("pdf").onclick = async () => {
+  const id = B.status.id;
+  const r = await fetch("/api/bct/report?id=" + encodeURIComponent(id));
+  if (!r.ok) { const e = await r.json().catch(() => ({})); log("Certificat: " + (e.error || "eroare"), true); return; }
+  const blob = await r.blob(), a = document.createElement("a");
+  a.href = URL.createObjectURL(blob); a.target = "_blank"; a.download = "certificat-BTX-" + id + ".pdf"; a.click();
+  setTimeout(() => URL.revokeObjectURL(a.href), 4000);
+  log("Certificatul PDF a fost generat.");
 };
 $("stop").onclick = $("stopTop").onclick = async () => {
   const r = await api("/api/bct/stop", {});

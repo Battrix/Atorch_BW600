@@ -36,3 +36,6 @@ Funcțional pe USB (BW600-DK verificat): protocol, transport USB, serviciu de ap
 - [docs/PLAN.md](docs/PLAN.md) — module, ordine de lucru, to-do
 - [docs/SOURCES.md](docs/SOURCES.md) — surse și referințe
 - [docs/DOCUMENTATIE-BW150-BW600.md](docs/DOCUMENTATIE-BW150-BW600.md) — documentația tehnică de bază (protocol USB HID, comenzi, firmware)
+
+## Test de capacitate baterie (BCT) + certificat PDF
+Vezi `docs/BCT.md`. Instalare: `py -m pip install -e .[usb,report]`, apoi pornești interfața și deschizi „Test baterie (BCT)”.

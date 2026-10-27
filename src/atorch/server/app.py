@@ -134,6 +134,27 @@ def make_handler(service: DeviceService, hub: Hub, link: str, engine: BctEngine 
                     step = len(smp) / mx
                     smp = [smp[int(i * step)] for i in range(mx - 1)] + [smp[-1]]
                 return self._json(dict(t, samples=smp))
+            if path == "/api/bct/report":
+                from atorch.report import ReportUnavailable, build_certificate, load_workshop
+                tid = (qs.get("id") or [""])[0]
+                try:
+                    t = engine.get_test(tid)
+                except (KeyError, FileNotFoundError, ValueError):
+                    return self._json({"error": "test negasit"}, 404)
+                if not t.get("result"):
+                    return self._json({"error": "testul nu are rezultat inca"}, 409)
+                try:
+                    pdf = build_certificate(t, load_workshop(store.root))
+                except ReportUnavailable as e:
+                    return self._json({"error": str(e)}, 501)
+                self.send_response(200)
+                self.send_header("Content-Type", "application/pdf")
+                self.send_header("Content-Length", str(len(pdf)))
+                self.send_header("Content-Disposition", f'inline; filename="certificat-BTX-{tid}.pdf"')
+                self.send_header("Cache-Control", "no-store")
+                self.end_headers()
+                self.wfile.write(pdf)
+                return
             return self._json({"error": "negasit"}, 404)
 
         def _bct_post(self, path, b):
