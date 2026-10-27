@@ -67,3 +67,32 @@ Modurile peste ID 9 (variantele cu unda, BCT, Dynamic load) nu sunt in sursele n
 
 **ETS.T: Wait..** = senzorul extern de temperatura nu este conectat. Valoarea "sonda" citita (~35 C) este probabil nevalida cand senzorul lipseste.
 **HID** in bara de sus = conexiunea USB HID activa. **Run 000:00:52** = timp de rulare afisat pe aparat (nedecodificat in 05 inca).
+
+## Moduri de lucru — observare pasiva si selectie (BW600-DK, FW V2.0.5, 27 oct 2026)
+
+Metoda: `tools/probe_modes.py` (doar citire 03/05, jurnal in `logs/`) cu navigare manuala in meniul aparatului,
+apoi `tools/probe_select.py` (trimite comenzile de mod 0x47+m, citeste inapoi; nu porneste sarcina).
+
+Byte-ul de mod din payload-ul 03 (offset 44), confirmat pe aparat:
+
+| ID | Mod | Selectabil prin USB (0x47+ID) |
+|----|-----|-------------------------------|
+| 0 | CC | da |
+| 1 | CV | da |
+| 2 | CR | da |
+| 3 | CP | da |
+| 4 | BRT | da (setpoint-ul din setari devine 0; offset 3 = 03) |
+| 5 | PT | da |
+| 6 | CT | da |
+| 7 | CDC | da |
+| 8 | CDCDC | da |
+| 9 | CDxn | da |
+| 10 (0x0A) | Dynamic load | NU: 0x51 nu schimba modul raportat |
+| 11 (0x0B) | BCT | netestat (testul s-a oprit la 10); 0x52 probabil la fel |
+
+Variantele „cu unda” (CC/CV/CR/CP cu unda): ID-ul de mod ramane 0..3, iar byte-ul de la offset 45 devine 04
+(in loc de 03). Offset 45 nu este deci „limba” cum scria documentatia, ci se comporta ca selector de forma/varianta
+(de confirmat). Comanda care il seteaza nu este cunoscuta.
+
+Concluzie: Dynamic load si BCT exista ca ID-uri (10, 11) si pot fi citite, dar comanda de selectie prin USB nu e
+0x47+ID. BCT ramane implementat ca profil CC + tensiune full (2A) + tensiune descarcat (29) + curent (21).

@@ -36,7 +36,7 @@ def test_limits_checked():
     with pytest.raises(ProtocolError):
         commands.set_brightness(10)
     with pytest.raises(ProtocolError):
-        commands.select_mode(10)
+        commands.select_mode(12)
 
 
 def test_timer_frames():

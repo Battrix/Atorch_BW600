@@ -26,7 +26,7 @@ OCP = 0x2C
 OPP = 0x2D
 NTC_OTP = 0x2E
 MOS_OTP = 0x2F
-MODE_BASE = 0x47             # cmd = 0x47 + mod (0..9)
+MODE_BASE = 0x47             # cmd = 0x47 + mod (0..11; 10 si 11 = ID-uri observate, comanda de selectie de verificat)
 
 # Date implicite pentru citiri, asa cum apar in documentatia noastra.
 POLL_DATA = bytes([0x0B, 0x00, 0x8C])
@@ -43,6 +43,8 @@ class Mode(enum.IntEnum):
     CDC = 7
     CDCDC = 8
     CDXN = 9
+    DYNAMIC = 10   # Dynamic load (ID observat pe aparat)
+    BCT = 11       # Battery Capacity Test (ID observat pe aparat)
 
 
 def read_settings() -> bytes:
@@ -60,8 +62,8 @@ def init(type_id: int) -> bytes:
 
 def select_mode(mode: Mode | int) -> bytes:
     m = int(mode)
-    if not 0 <= m <= 9:
-        raise ProtocolError("mod invalid (0..9)")
+    if not 0 <= m <= 11:
+        raise ProtocolError("mod invalid (0..11)")
     return build_frame(MODE_BASE + m)
 
 
