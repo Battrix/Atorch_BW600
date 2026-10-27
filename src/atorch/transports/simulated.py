@@ -58,6 +58,7 @@ class SimulatedTransport(Transport):
         self.fixed_current_ma = current_ma
         self.ignore_writes, self.ignore_stop = ignore_writes, ignore_stop
         self.is_open = False
+        self.cdc_stage = 0
 
     def open(self):
         self.is_open = True
@@ -73,6 +74,19 @@ class SimulatedTransport(Transport):
         if c is None:
             return
         i = self.current_ma / 1000
+        if self.running and self.mode == 7:
+            # Model simplificat pentru verificarea fluxului UI, nu validare electrica.
+            c.soc += (-1 if self.cdc_stage == 1 else 1) * i * dt / 3600 / c.capacity_ah
+            voltage = c.ocv() + (-1 if self.cdc_stage == 1 else 1) * i * c.ri_ohm
+            self.voltage_mv = int(voltage * 1000)
+            if self.cdc_stage != 1 and voltage >= self.extra["full_voltage"]:
+                if self.cdc_stage == 2:
+                    self.running = False
+                else:
+                    self.cdc_stage = 1
+            elif self.cdc_stage == 1 and voltage <= self.cutoff:
+                self.cdc_stage = 2
+            return
         if self.running:
             c.soc -= i * dt / 3600 / c.capacity_ah
         self.voltage_mv = int((c.ocv() - (i * c.ri_ohm if self.running else 0)) * 1000)
@@ -81,6 +95,8 @@ class SimulatedTransport(Transport):
 
     @property
     def current_ma(self) -> int:
+        if self.running and self.mode == 7:
+            return int((self.setpoint if self.cdc_stage == 1 else 1.0) * 1000)
         if self.running and self.mode == 0 and self.voltage_mv / 1000 > self.cutoff:
             return int(self.setpoint * 1000)
         return self.fixed_current_ma
@@ -89,6 +105,8 @@ class SimulatedTransport(Transport):
         cmd = frame[3]
         if cmd == 0x25:
             on = frame[4] == 1
+            if on and not self.running:
+                self.cdc_stage = 0
             if on or not self.ignore_stop:
                 self.running = on
         if self.ignore_writes:
@@ -118,6 +136,8 @@ class SimulatedTransport(Transport):
             struct.pack_into("<I", pl, 12, v * i // 1000)
             struct.pack_into("<I", pl, 16, 9999991)
             pl[48] = 1 if self.running else 0
+            if self.running and self.mode == 7 and self.cdc_stage == 1:
+                pl[56] = 0x80
             self._q.append(make_reply(0x05, bytes(pl)))
         elif cmd == 0x03:
             pl = bytearray(58)

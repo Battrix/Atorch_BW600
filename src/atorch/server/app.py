@@ -17,6 +17,7 @@ from urllib.parse import parse_qs, urlparse
 from atorch.bct import BctEngine, BctError, TestStore
 from atorch.bct.catalog import CHEMISTRIES, BatteryError, derive_battery
 from atorch.service.device import CommandFailed, CommandRejected, DeviceService
+from atorch.cdc import CdcEngine
 
 UI_DIR = Path(__file__).resolve().parent.parent / "ui"
 CMD_TIMEOUT = 12.0
@@ -67,7 +68,10 @@ def _state_payload(service: DeviceService, link: str) -> dict:
 
 
 def make_handler(service: DeviceService, hub: Hub, link: str, engine: BctEngine | None = None):
+    cdc = CdcEngine(service, root=engine.store.root if engine else None, bct=engine)
+    control_lock = threading.RLock()
     class Handler(BaseHTTPRequestHandler):
+        cdc_engine = cdc
         server_version = "AtorchLab/0.1"
         protocol_version = "HTTP/1.1"
 
@@ -104,6 +108,15 @@ def make_handler(service: DeviceService, hub: Hub, link: str, engine: BctEngine 
                 return self._json(_state_payload(service, link))
             if path == "/api/history":
                 return self._json(service.history()[-3600:])
+            if path == "/api/cdc/status":
+                return self._json(cdc.status(samples=True))
+            if path == "/api/cdc/history":
+                return self._json(cdc.history())
+            if path == "/api/cdc/test":
+                try:
+                    return self._json(cdc.load(parse_qs(urlparse(self.path).query).get("id", [""])[0]))
+                except (ValueError, OSError):
+                    return self._json({"error": "test negasit"}, 404)
             if path == "/api/stream":
                 return self._stream()
             if path.startswith("/api/bct/"):
@@ -232,11 +245,36 @@ def make_handler(service: DeviceService, hub: Hub, link: str, engine: BctEngine 
             except (ValueError, json.JSONDecodeError):
                 return self._json({"ok": False, "error": "JSON invalid"}, 400)
             path = urlparse(self.path).path
+            if path.startswith("/api/cdc/"):
+                try:
+                    with control_lock:
+                        if path == "/api/cdc/start":
+                            return self._json({"ok": True, "id": cdc.start(body)})
+                        if path == "/api/cdc/stop":
+                            cdc.stop().result(CMD_TIMEOUT)
+                            return self._json({"ok": True, "message": "oprire confirmata"})
+                    return self._json({"error": "comanda necunoscuta"}, 404)
+                except (ValueError, KeyError, TypeError, CommandFailed, CommandRejected, FutureTimeout) as e:
+                    return self._json({"ok": False, "error": str(e)}, 409)
+            if cdc.active():
+                if path == "/api/power" and body.get("on") is False:
+                    try:
+                        cdc.stop().result(CMD_TIMEOUT)
+                        return self._json({"ok": True, "message": "oprire confirmata"})
+                    except Exception as e:
+                        return self._json({"error": str(e)}, 502)
+                return self._json({"error": "CDC activ: foloseste Stop inainte de alte comenzi"}, 409)
             if path.startswith("/api/bct/"):
-                obj, code = self._bct_post(path, body)
+                with control_lock:
+                    if cdc.active():
+                        return self._json({"error": "CDC activ"}, 409)
+                    obj, code = self._bct_post(path, body)
                 return self._json(obj, code)
             try:
-                fut = self._dispatch(path, body)
+                with control_lock:
+                    if cdc.active():
+                        return self._json({"error": "CDC activ"}, 409)
+                    fut = self._dispatch(path, body)
             except (KeyError, TypeError, ValueError):
                 return self._json({"ok": False, "error": "parametri lipsa sau invalizi"}, 400)
             if fut is None:
@@ -282,4 +320,5 @@ def create_server(service: DeviceService, host: str = "127.0.0.1", port: int = 8
                 super().handle_error(request, client_address)
 
     srv = Server((host, port), make_handler(service, hub, link, engine))
+    srv.cdc = srv.RequestHandlerClass.cdc_engine
     return srv

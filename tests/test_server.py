@@ -75,6 +75,29 @@ def test_validation_errors(app):
     assert post(base, "/api/nimic", {})[0] == 404
 
 
+def test_cdc_api_and_interlock(app):
+    base, sim = app
+    assert get(base, '/cdc.html')[0] == 200
+    assert json.loads(get(base, '/api/cdc/status')[1])['state'] == 'idle'
+    for _ in range(100):
+        if json.loads(get(base, '/api/state')[1])['state']['updated']:
+            break
+        time.sleep(.02)
+    params = dict(current=1, empty_v=3, full_v=4.1, end_current=.1, double_start=True)
+    assert post(base, '/api/cdc/start', dict(params, end_current=float('nan')))[0] == 409
+    assert post(base, '/api/cdc/start', params)[0] == 200
+    assert post(base, '/api/mode', {'mode': 0})[0] == 409
+    assert post(base, '/api/cdc/start', params)[0] == 409
+    assert post(base, '/api/cdc/stop', {})[0] == 200
+    for _ in range(150):
+        st = json.loads(get(base, '/api/cdc/status')[1])
+        if st['state'] not in ('preparing', 'running', 'stopping'):
+            break
+        time.sleep(.02)
+    assert st['stop_confirmed']
+    assert not sim.running
+
+
 def test_origin_check(app):
     base, _ = app
     st, r = post(base, "/api/power", {"on": False}, {"Origin": "http://evil.example"})

@@ -23,7 +23,7 @@ from atorch.transports.base import Transport, TransportError, TransportTimeout
 
 log = logging.getLogger("atorch.service")
 
-MODE_LIMIT_KEYS = {0: "cc", 1: "cv", 2: "cr", 3: "cp"}
+MODE_LIMIT_KEYS = {0: "cc", 1: "cv", 2: "cr", 3: "cp", 7: "cc", 8: "cc", 9: "cc"}
 # nume -> (functie de constructie, cheie in setari, toleranta)
 _FLOAT_SETTINGS = {
     "setpoint": (commands.set_setpoint, "setpoint"),
@@ -134,6 +134,22 @@ class DeviceService:
     def stop_load(self) -> Future:
         return self._submit(lambda t: self._do_run(t, False), priority=0)
 
+    def start_cdc(self, cancel: threading.Event, second_start: bool = True) -> Future:
+        """Secventa observata pe BW600; STOP poate anula al doilea START."""
+        def execute(t):
+            if cancel.is_set():
+                raise CommandRejected("pornire anulata")
+            if self._read_live(t).running:
+                raise CommandRejected("aparatul ruleaza deja")
+            t.send(commands.run(True))
+            if second_start:
+                if cancel.wait(1.0):
+                    t.send(commands.run(False))
+                    raise CommandRejected("pornire anulata")
+                t.send(commands.run(True))
+            return "Start transmis; se asteapta curentul masurat"
+        return self._submit(execute)
+
     def set_mode(self, mode: int) -> Future:
         if not 0 <= int(mode) <= 9:
             return self._rejected("mod invalid")
@@ -181,6 +197,10 @@ class DeviceService:
             if key is None:
                 return "setpoint-ul nu se poate schimba in acest mod (sau modul e necunoscut)"
             lo, hi = lim[key]
+        elif name == "full_voltage":
+            lo, hi = lim["cutoff"]
+        elif name == "full_current":
+            lo, hi = 0.001, lim["cc"][1]
         elif name in lim:
             lo, hi = lim[name]
         else:
@@ -230,7 +250,8 @@ class DeviceService:
             self._write(t, commands.run(on))
             deadline = time.monotonic() + (2.0 if on else self.stop_wait)
             while time.monotonic() < deadline:
-                if self._read_live(t).running == on:
+                live = self._read_live(t)
+                if live.running == on and (on or live.get("current", 0) < 0.02):
                     return "pornit" if on else "oprit"
                 time.sleep(0.1)
         raise CommandFailed("pornirea nu a fost confirmata" if on else "OPRIREA NU A FOST CONFIRMATA")

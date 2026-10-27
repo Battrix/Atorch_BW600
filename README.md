@@ -51,3 +51,11 @@ Funcțional pe USB (BW600-DK verificat): protocol, transport USB, serviciu de ap
 
 ## Test de capacitate baterie (BCT) + certificat PDF
 Vezi `docs/BCT.md`. Instalare: `py -m pip install -e .[usb,report]`, apoi pornești interfața și deschizi „Test baterie (BCT)”.
+
+## Ciclu CDC
+
+Pagina „Ciclu CDC” configurează programul nativ BW600, monitorizează încărcarea/descărcarea, salvează etapele și oferă CSV și raport de tipărit/PDF. Vezi [docs/CDC.md](docs/CDC.md) pentru parametri, pornirea dublă și limitele validării.
+
+![Ciclu CDC complet în simulator](docs/images/cdc.jpg)
+
+Captură demonstrativă din simulator; integrarea paginii nu a pornit aparatul real.

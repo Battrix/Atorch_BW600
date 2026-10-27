@@ -53,6 +53,9 @@ def main(argv=None) -> int:
     except KeyboardInterrupt:
         pass
     finally:
+        srv.cdc.stop()
+        if srv.cdc.thread:
+            srv.cdc.thread.join(18)
         engine.stop()
         svc.stop_load()          # la inchidere, sarcina se opreste
         import time
