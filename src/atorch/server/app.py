@@ -170,6 +170,15 @@ def make_handler(service: DeviceService, hub: Hub, link: str, engine: BctEngine 
                 if path == "/api/bct/stop":
                     engine.stop()
                     return {"ok": True, "message": "oprire cerută"}, 200
+                if path == "/api/bct/pause":
+                    engine.pause()
+                    return {"ok": True, "message": "pauză cerută"}, 200
+                if path == "/api/bct/resume":
+                    engine.resume()
+                    return {"ok": True, "message": "reluare cerută"}, 200
+                if path == "/api/bct/reset":
+                    engine.reset()
+                    return {"ok": True, "message": "testul a fost resetat"}, 200
                 if path == "/api/bct/derive":
                     return {"ok": True, "battery": derive_battery(b["chemistry"], int(b["series"]), float(b["rated_ah"]),
                                                                    model=str(b.get("model", "")))}, 200

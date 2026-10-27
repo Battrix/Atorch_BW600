@@ -49,3 +49,10 @@ select,input[type=text],input[type=number]{width:100%;padding:8px 9px;border:1px
 .histbox .hist li:hover{background:#18242a}
 .histbox .hist li.empty{color:var(--lcd-dim)}
 .histbox .hist b.pos{color:#7ff0a4}.histbox .hist b.neg{color:#ff9b91}.histbox .hist b.nef{color:#f4d03f}
+
+.panel .runrow{grid-template-columns:1.25fr 1fr .8fr;gap:8px}
+.panel .runrow button{font-size:17px;padding:12px 6px}
+.rst{border:0;border-radius:8px;background:#7b8a93;color:#fff;font-weight:700;box-shadow:0 3px 0 rgba(0,0,0,.28)}
+.rst:active{transform:translateY(2px);box-shadow:0 1px 0 rgba(0,0,0,.28)}
+.go.pause{background:#d98e04;color:#fff}
+.lamp.pause{background:#ffb020;box-shadow:0 0 0 3px rgba(255,176,32,.3)}

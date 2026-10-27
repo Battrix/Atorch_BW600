@@ -2,7 +2,7 @@
 const $ = (id) => document.getElementById(id);
 const B = {catalog: null, status: {}, test: null, connected: false, running: false, live: {}, curId: null, pollT: 0};
 const FIELDS = {nominal_v: "f_nominal", full_v: "f_full", empty_v: "f_empty", discharge_a: "f_cur", pass_pct: "f_pass", ri_max_mohm: "f_ri"};
-const ACTIVE = ["preparing", "running"];
+const ACTIVE = ["preparing", "running", "paused"];
 
 /* ---------- utilitare ---------- */
 function log(msg, err) {
@@ -119,9 +119,14 @@ function renderLive() {
 }
 function renderStatus() {
   const s = B.status, act = ACTIVE.includes(s.state);
-  $("lamp").className = "lamp " + (!B.connected ? "bad" : act ? "run" : "ok");
-  setText("linkText", !B.connected ? "Fără conexiune cu aparatul" : act ? "Test în curs" : "Conectat, în așteptare");
-  $("start").disabled = !B.connected || act;
+  const st = s.state, paused = st === "paused", runningNow = st === "running";
+  $("lamp").className = "lamp " + (!B.connected ? "bad" : paused ? "pause" : act ? "run" : "ok");
+  setText("linkText", !B.connected ? "Fără conexiune cu aparatul" : paused ? "Test în pauză" : act ? "Test în curs" : "Conectat, în așteptare");
+  // un singur buton: Start test -> Pauză (în timpul testului) -> Reia (în pauză)
+  const sb = $("start");
+  sb.textContent = paused ? "Reia" : runningNow ? "Pauză" : "Start test";
+  sb.classList.toggle("pause", runningNow);
+  sb.disabled = !B.connected || st === "preparing";
   $("cfg").disabled = act;
   $("lockNote").hidden = !act;
   $("pdf").disabled = !(s.result && s.id && !act);
@@ -202,6 +207,12 @@ setInterval(pollChart, 3000);
 
 /* ---------- comenzi ---------- */
 $("start").onclick = async () => {
+  const st = B.status.state;
+  if (st === "running" || st === "paused") {
+    const r = await api(st === "running" ? "/api/bct/pause" : "/api/bct/resume", {});
+    log(r.ok ? (st === "running" ? "Pauză cerută." : "Reluare cerută.") : (r.error || "eroare"), !r.ok);
+    return;
+  }
   const b = batteryFromForm();
   const extra = {client: $("f_client").value, serial: $("f_serial").value, operator: $("f_operator").value, notes: $("f_notes").value};
   for (const k of ["rated_ah", "nominal_v", "full_v", "empty_v", "discharge_a", "pass_pct"]) if (b[k] == null) { log("Completează toate câmpurile bateriei (butonul Calculează ajută).", true); return; }
@@ -217,6 +228,13 @@ $("pdf").onclick = async () => {
   a.href = URL.createObjectURL(blob); a.target = "_blank"; a.download = "certificat-BTX-" + id + ".pdf"; a.click();
   setTimeout(() => URL.revokeObjectURL(a.href), 4000);
   log("Certificatul PDF a fost generat.");
+};
+$("reset").onclick = async () => {
+  if (ACTIVE.includes(B.status.state) && !confirm("Resetezi testul? Sarcina se oprește, iar testul curent nu se salvează.")) return;
+  const r = await api("/api/bct/reset", {});
+  if (!r.ok) { log("Reset: " + (r.error || "eroare"), false); return; }
+  B.test = null; B.curId = null; B.status = {state: "idle"}; renderStatus(); drawCharts();
+  log("Test resetat.");
 };
 $("stop").onclick = $("stopTop").onclick = async () => {
   const r = await api("/api/bct/stop", {});
@@ -236,7 +254,7 @@ function init() {
   es.addEventListener("status", (ev) => { B.connected = JSON.parse(ev.data).connected; renderStatus(); renderLive(); });
   es.addEventListener("bct", async (ev) => {
     const prev = B.status.state; B.status = JSON.parse(ev.data); renderStatus();
-    if (prev !== B.status.state && !ACTIVE.includes(B.status.state)) { await showTest(B.status.id); const c = await api("/api/bct/catalog"); if (!c.error) { B.catalog = c; renderHistory(); } }
+    if (prev !== B.status.state && !ACTIVE.includes(B.status.state) && B.status.id) { await showTest(B.status.id); const c = await api("/api/bct/catalog"); if (!c.error) { B.catalog = c; renderHistory(); } }
   });
   es.onerror = () => { B.connected = false; renderStatus(); renderLive(); };
 }

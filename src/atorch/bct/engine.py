@@ -18,8 +18,9 @@ from .store import TestStore
 
 log = logging.getLogger("atorch.bct")
 
-IDLE, PREPARING, RUNNING, FINISHED, ABORTED, ERROR = "idle", "preparing", "running", "finished", "aborted", "error"
-ACTIVE = (PREPARING, RUNNING)
+IDLE, PREPARING, RUNNING, PAUSED, FINISHED, ABORTED, ERROR = (
+    "idle", "preparing", "running", "paused", "finished", "aborted", "error")
+ACTIVE = (PREPARING, RUNNING, PAUSED)
 
 
 class BctError(Exception):
@@ -63,6 +64,8 @@ class BctEngine:
         self._lock = threading.Lock()
         self._q: queue.Queue = queue.Queue(maxsize=20000)
         self._abort = threading.Event()
+        self._discard = False                      # Reset in timpul testului: nu se salveaza
+        self._ctl: queue.Queue = queue.Queue()     # "pause" / "resume" catre firul testului
         self._thread: threading.Thread | None = None
         self._status = self._blank()
         self._test: dict | None = None
@@ -97,8 +100,11 @@ class BctEngine:
         ocv = validate_params(battery, self.svc.snapshot(), self.svc.profile.limits)
         tid = self.store.new_test_id()
         self._abort.clear()
+        self._discard = False
         while not self._q.empty():
             self._q.get_nowait()
+        while not self._ctl.empty():
+            self._ctl.get_nowait()
         with self._lock:
             self._test = {"id": tid, "state": PREPARING, "battery": dict(battery), "extra": dict(extra or {}),
                           "device": self.svc.profile.title, "ocv_start": ocv, "started": time.time(),
@@ -113,6 +119,27 @@ class BctEngine:
     def stop(self) -> None:
         self._abort.set()
 
+    def pause(self) -> None:
+        if self._status["state"] != RUNNING:
+            raise BctError("testul nu rulează, nu poate fi pus în pauză")
+        self._ctl.put("pause")
+
+    def resume(self) -> None:
+        if self._status["state"] != PAUSED:
+            raise BctError("testul nu este în pauză")
+        self._ctl.put("resume")
+
+    def reset(self) -> None:
+        """Opreste (daca ruleaza) si goleste testul curent fara sa-l salveze; revine la starea initiala."""
+        if self.active():
+            self._discard = True
+            self._abort.set()
+            self.join(20)
+        with self._lock:
+            self._test = None
+            self._status = self._blank()
+        self._notify()
+
     def join(self, timeout: float = 10.0) -> None:
         if self._thread:
             self._thread.join(timeout)
@@ -121,7 +148,8 @@ class BctEngine:
     @staticmethod
     def _blank() -> dict:
         return {"state": IDLE, "id": None, "message": "", "elapsed": 0.0, "ah": 0.0, "wh": 0.0, "ocv": None,
-                "ri_mohm": None, "v": None, "i": None, "soc_pct": None, "result": None, "battery": None}
+                "ri_mohm": None, "v": None, "i": None, "soc_pct": None, "result": None, "battery": None,
+                "paused_s": 0.0}
 
     def _notify(self) -> None:
         st = self.status()
@@ -190,7 +218,9 @@ class BctEngine:
         prev = None
         last_store = -1e9
         seen_running = False
-        settled_at = None
+        paused = False
+        paused_s = 0.0
+        pause_t = 0.0
         ri = None
         below = 0
         last_rx = time.monotonic()
@@ -198,8 +228,28 @@ class BctEngine:
         self._notify()
         while True:
             if self._abort.is_set():
-                self._cfg(self.svc.stop_load(), "oprire")
+                if not paused:
+                    self._cfg(self.svc.stop_load(), "oprire")
                 return ABORTED, "Test oprit de operator"
+            try:
+                cmd = self._ctl.get_nowait()
+            except queue.Empty:
+                cmd = None
+            if cmd == "pause" and not paused:
+                self._cfg(self.svc.stop_load(), "pauză")
+                paused, pause_t, prev = True, time.time(), None
+                self._set(state=PAUSED, message="Test în pauză: sarcina este oprită")
+                with self._lock:
+                    t["state"] = PAUSED
+                self._notify()
+            elif cmd == "resume" and paused:
+                self._cfg(self.svc.start_load(), "reluare")
+                paused_s += time.time() - pause_t
+                paused, prev, below = False, None, 0
+                self._set(state=RUNNING, message="Descărcare în curs")
+                with self._lock:
+                    t["state"] = RUNNING
+                self._notify()
             try:
                 row = self._q.get(timeout=0.5)
             except queue.Empty:
@@ -214,20 +264,19 @@ class BctEngine:
             running = row.get("running", False)
             if running:
                 seen_running = True
-            elif not seen_running:
+            elif not seen_running and not paused:
                 if ts - t0 > self.start_timeout:
                     return ERROR, "Sarcina nu a pornit"
                 continue
-            if prev is not None and running:
+            if prev is not None and running and not paused:
                 dt = ts - prev[0]
                 if 0 < dt < 5:                         # trapez; goluri mari nu se integreaza
                     ah += (i + prev[1]) / 2 * dt / 3600
                     wh += (w + prev[2]) / 2 * dt / 3600
             prev = (ts, i, w)
-            if running and ri is None and sp > 0:
+            if running and ri is None and sp > 0 and not paused:
                 if abs(i - sp) <= self.settle_tol * sp:
                     ri = max(0.0, (t["ocv_start"] - v) / i * 1000)
-                    settled_at = ts
                 elif ts - t0 > self.settle_timeout:
                     ri = float("nan")
             rel = ts - t0
@@ -238,9 +287,13 @@ class BctEngine:
                 with self._lock:
                     t["samples"].append(s)
             span = b["full_v"] - b["empty_v"]
+            cur_pause = (time.time() - pause_t) if paused else 0.0
             self._set(elapsed=rel, ah=ah, wh=wh, v=v, i=i, ri_mohm=None if ri != ri else ri,
-                      soc_pct=max(0.0, min(100.0, (v - b["empty_v"]) / span * 100)))
+                      soc_pct=max(0.0, min(100.0, (v - b["empty_v"]) / span * 100)),
+                      paused_s=paused_s + cur_pause)
             self._notify()
+            if paused:
+                continue                                # in pauza sarcina e oprita: nu e un sfarsit de test
             if running:
                 below = below + 1 if v <= b["empty_v"] else 0
                 if below >= 3:                          # al doilea nivel de siguranta, pe langa cel al aparatului
@@ -275,7 +328,10 @@ class BctEngine:
                   "ocv_start": t["ocv_start"], "v_end": st["v"], "reasons": reasons, "end_reason": message}
         with self._lock:
             t["state"], t["result"], t["finished"] = state, result, time.time()
+            t["paused_s"] = st.get("paused_s", 0.0)
             self._status.update(state=state, message=message, result=result)
+        if self._discard:
+            return
         try:
             self.store.save_test(dict(t))
         except OSError as e:

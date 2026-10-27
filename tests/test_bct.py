@@ -161,3 +161,63 @@ def test_seed_lfp_cells_respect_device_limits(tmp_path):
     assert lf["discharge_a"] == 40.0 and "limitat" in lf["notes"]           # 0,2C = 56 A > limita aparatului
     assert items["seed-calb-ca100"]["discharge_a"] == 20.0
     assert {"seed-cornex-pf173-314a", "seed-calb-ca180", "seed-eve-mb31"} <= set(items)
+
+
+def test_pause_resume_total_time_includes_pause(tmp_path):
+    cell = SimCell(capacity_ah=0.012, v_full=3.4, v_empty=3.0, ri_ohm=0.004)
+    svc, sim, eng = make(tmp_path, cell)
+    try:
+        eng.start(battery(rated_ah=0.01))
+        time.sleep(0.5)
+        eng.pause()
+        time.sleep(0.3)
+        assert eng.status()["state"] == "paused" and not sim.running
+        soc_in_pause = cell.soc
+        time.sleep(1.2)                                         # pauza lunga: nu consuma celula
+        assert cell.soc == pytest.approx(soc_in_pause, abs=1e-9)
+        eng.resume()
+        st = wait(eng, 30)
+        assert st["state"] == "finished", st
+        r = st["result"]
+        assert r["duration_s"] >= 1.5 + 0.5                     # timpul total include pauza
+        assert 0.008 < r["capacity_ah"] < 0.013                 # capacitatea nu include pauza
+        saved = TestStore(tmp_path).list_tests()
+        assert len(saved) == 1
+    finally:
+        svc.shutdown()
+
+
+def test_stop_while_paused_interrupts(tmp_path):
+    cell = SimCell(capacity_ah=5.0, v_full=3.4, v_empty=3.0, ri_ohm=0.002)
+    svc, sim, eng = make(tmp_path, cell)
+    try:
+        eng.start(battery(rated_ah=5.0))
+        time.sleep(0.4)
+        eng.pause()
+        time.sleep(0.4)
+        assert eng.status()["state"] == "paused"
+        eng.stop()
+        st = wait(eng)
+        assert st["state"] == "aborted" and st["result"]["verdict"] == "NEFINALIZAT" and not sim.running
+    finally:
+        svc.shutdown()
+
+
+def test_reset_discards_running_test_and_clears(tmp_path):
+    cell = SimCell(capacity_ah=5.0, v_full=3.4, v_empty=3.0, ri_ohm=0.002)
+    svc, sim, eng = make(tmp_path, cell)
+    try:
+        eng.start(battery(rated_ah=5.0))
+        time.sleep(0.4)
+        assert sim.running
+        eng.reset()
+        assert eng.status()["state"] == "idle" and not sim.running
+        assert TestStore(tmp_path).list_tests() == []           # nu s-a salvat
+        eng.start(battery(rated_ah=5.0))                        # se poate porni din nou
+        eng.reset()
+        with pytest.raises(BctError):
+            eng.pause()
+        with pytest.raises(BctError):
+            eng.resume()
+    finally:
+        svc.shutdown()
