@@ -47,16 +47,11 @@
       <button id="stop" class="halt">Stop</button>
     </div>
     <p class="summary" id="summary">—</p>
-    <div class="gauge" id="gaugeBox" hidden>
-      <div class="gtop"><span>Nivel baterie (estimat din tensiune)</span><b id="gaugePct">—</b></div>
-      <div class="gbar"><i id="gaugeFill"></i></div>
-      <div class="gends"><span id="gaugeLo">—</span><span id="gaugeHi">—</span></div>
-    </div>
 
     <fieldset id="cfg">
       <legend>Mod de lucru</legend>
       <div class="seg modes" id="modes" role="group">
-        <button data-m="0">CC</button><button data-m="1">CV</button><button data-m="2">CR</button><button data-m="3">CP</button><button data-m="4">BRT</button><button data-m="5">PT</button><button data-m="6">CT</button><button data-m="7">CDC</button><button data-m="8">CDCDC</button><button data-m="9">CDxN</button>
+        <button data-m="0">CC</button><button data-m="1">CV</button><button data-m="2">CR</button><button data-m="3">CP</button>
       </div>
       <p class="hint" id="modeHint"></p>
 
@@ -64,9 +59,6 @@
         <span class="inp"><input id="in_setpoint" type="number" step="any" inputmode="decimal"><b id="spUnit">A</b><button data-set="setpoint">Setează</button></span></label>
       <label class="field"><span>Tensiune de oprire</span>
         <span class="inp"><input id="in_cutoff" type="number" step="any" inputmode="decimal"><b>V</b><button data-set="cutoff">Setează</button></span></label>
-
-      <label class="field"><span>Tensiune încărcată (full)</span>
-        <span class="inp"><input id="in_full_voltage" type="number" step="any" inputmode="decimal"><b>V</b><button data-set="full_voltage">Setează</button></span></label>
 
       <h3>Protecții</h3>
       <label class="field"><span>Curent maxim</span>

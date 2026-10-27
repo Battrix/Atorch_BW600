@@ -1,10 +1,10 @@
 "use strict";
 const $ = (id) => document.getElementById(id);
-const MODES = ["CC", "CV", "CR", "CP", "BRT", "PT", "CT", "CDC", "CDCDC", "CDxN", "Dynamic load", "BCT"];
+const MODES = ["CC", "CV", "CR", "CP", "BRT", "PT", "CT", "CDC", "CDCDC", "CDxN"];
 const SP_UNIT = ["A", "V", "Ω", "W"];
 const SP_NAME = ["Curent setat", "Tensiune setată", "Rezistență setată", "Putere setată"];
 const FIELD_NAMES = {setpoint: "Valoare setată", cutoff: "Tensiune de oprire", ocp: "Curent maxim",
-  opp: "Putere maximă", full_voltage: "Tensiune full", ntc_otp: "Temperatură sondă", mos_otp: "Temperatură MOSFET"};
+  opp: "Putere maximă", ntc_otp: "Temperatură sondă", mos_otp: "Temperatură MOSFET"};
 const CH = [
   {key: "voltage", name: "V", color: "#f4d03f", minSpan: 0.02, zero: false},
   {key: "current", name: "A", color: "#3cc8e8", minSpan: 0.1, zero: true},
@@ -58,7 +58,6 @@ function renderLive() {
   setText("sTm", L.temp_mos == null ? "—" : L.temp_mos.toFixed(1) + " °C");
   setText("sTc", L.temp_cpu == null ? "—" : L.temp_cpu.toFixed(1) + " °C");
   setText("sFan", L.fan == null ? "—" : L.fan.toFixed(0) + " %");
-  renderGauge();
 }
 
 function renderStatus(err) {
@@ -79,29 +78,14 @@ function renderSettings() {
   setText("spUnit", electrical ? SP_UNIT[mode] : "");
   $("in_setpoint").disabled = !electrical;
   document.querySelector('[data-set="setpoint"]').disabled = !electrical;
-  setText("modeHint", mode == null ? "" : electrical ? "" : mode >= 10 ?
-    `Aparatul este în modul ${MODES[mode] || mode}. Acest mod se selectează și se configurează de pe aparat; aici îl vezi doar.` :
-    `Mod ${MODES[mode]} selectat. Parametrii lui (ex. trepte, durate) se configurează deocamdată de pe aparat.`);
-  for (const name of ["setpoint", "cutoff", "full_voltage", "ocp", "opp", "ntc_otp", "mos_otp"]) syncInput("in_" + name, s[name]);
+  setText("modeHint", mode == null ? "" : electrical ? "" :
+    `Aparatul este în modul ${MODES[mode] || mode}. Acest mod se configurează de pe aparat.`);
+  for (const name of ["setpoint", "cutoff", "ocp", "opp", "ntc_otp", "mos_otp"]) syncInput("in_" + name, s[name]);
   syncInput("in_th", s.timer_hours); syncInput("in_tm", s.timer_minutes);
   const sp = electrical && s.setpoint != null ? `${MODES[mode]} ${trim(s.setpoint)} ${SP_UNIT[mode]}` : (mode != null ? MODES[mode] : "—");
   const cut = s.cutoff != null ? `, oprire la ${trim(s.cutoff)} V` : "";
   const tl = (s.timer_hours || s.timer_minutes) ? `, limită ${s.timer_hours} h ${s.timer_minutes} min` : "";
   setText("summary", sp + cut + tl);
-  renderGauge();
-}
-/* Nivel baterie estimat: (V - tensiune descarcat) / (tensiune full - tensiune descarcat), ca la BCT. */
-function renderGauge() {
-  const s = S.settings, v = S.live && S.live.voltage;
-  const lo = s.cutoff, hi = s.full_voltage;
-  const ok = v != null && lo != null && hi != null && hi > lo;
-  $("gaugeBox").hidden = !ok;
-  if (!ok) return;
-  const pct = Math.max(0, Math.min(100, (v - lo) / (hi - lo) * 100));
-  setText("gaugePct", pct.toFixed(0) + " %");
-  $("gaugeFill").style.width = pct + "%";
-  setText("gaugeLo", trim(lo) + " V (descărcat)");
-  setText("gaugeHi", trim(hi) + " V (full)");
 }
 function trim(v) { return Number(v.toFixed(4)).toString(); }
 function syncInput(id, v) {
