@@ -2,7 +2,9 @@
 from __future__ import annotations
 
 import struct
+import time
 from collections import deque
+from dataclasses import dataclass
 
 from atorch.protocol import parse_reply
 from atorch.protocol.frames import Reply
@@ -18,6 +20,19 @@ _FLOAT_CMDS = {0x2A: "full_voltage", 0x2B: "full_current", 0x2C: "ocp", 0x2D: "o
 _LEVEL_CMDS = {0x22: "brightness", 0x23: "standby_brightness", 0x24: "standby_time"}
 
 
+@dataclass
+class SimCell:
+    """Celula simulata: tensiunea scade liniar cu starea de incarcare, cu rezistenta interna."""
+    capacity_ah: float = 0.01
+    v_full: float = 3.4
+    v_empty: float = 2.8
+    ri_ohm: float = 0.002
+    soc: float = 1.0
+
+    def ocv(self) -> float:
+        return self.v_empty + (self.v_full - self.v_empty) * max(0.0, self.soc)
+
+
 class SimulatedTransport(Transport):
     """Imita un BW600 (layout sq6emm): tine mod, setpoint, cutoff si starea de rulare.
 
@@ -29,7 +44,8 @@ class SimulatedTransport(Transport):
 
     def __init__(self, voltage_mv=12000, current_ma=0, layout="bw600",
                  mode=1, setpoint=5.0, cutoff=14.8, ignore_writes=False,
-                 ignore_stop=False):
+                 ignore_stop=False, cell: SimCell | None = None):
+        self.cell, self._cell_t = cell, time.monotonic()
         self.sent: list[bytes] = []
         self._q: deque[bytes] = deque()
         self.voltage_mv, self.layout = voltage_mv, layout
@@ -48,6 +64,20 @@ class SimulatedTransport(Transport):
 
     def close(self):
         self.is_open = False
+
+    def _advance_cell(self) -> None:
+        """Actualizeaza celula simulata: consum de sarcina, tensiune si oprire la cutoff."""
+        c = self.cell
+        now = time.monotonic()
+        dt, self._cell_t = now - self._cell_t, now
+        if c is None:
+            return
+        i = self.current_ma / 1000
+        if self.running:
+            c.soc -= i * dt / 3600 / c.capacity_ah
+        self.voltage_mv = int((c.ocv() - (i * c.ri_ohm if self.running else 0)) * 1000)
+        if self.running and self.voltage_mv / 1000 <= self.cutoff:
+            self.running = False
 
     @property
     def current_ma(self) -> int:
@@ -80,6 +110,7 @@ class SimulatedTransport(Transport):
         self.sent.append(frame)
         cmd = frame[3]
         if cmd == 0x05:
+            self._advance_cell()
             pl = bytearray(58)
             v, i = self.voltage_mv, self.current_ma
             struct.pack_into("<I", pl, 4, v)
