@@ -1,0 +1,84 @@
+<!doctype html>
+<html lang="ro">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Atorch Lab</title>
+<link rel="stylesheet" href="app.css">
+</head>
+<body>
+<header class="bar">
+  <div class="id">
+    <span id="devTitle" class="model">ATORCH</span>
+    <span id="devLink" class="chip">—</span>
+  </div>
+  <div class="link-state"><span id="lamp" class="lamp"></span><span id="linkText">Se conectează…</span><button id="stopTop" class="halt mini" title="Oprește sarcina">Stop</button></div>
+</header>
+
+<main class="layout">
+  <section class="screen" aria-label="Ecran de măsură">
+    <div class="readouts">
+      <div class="ro v"><span class="lbl">Tensiune</span><span class="val" id="rV">--.---</span><span class="unit">V</span></div>
+      <div class="ro a"><span class="lbl">Curent</span><span class="val" id="rA">--.---</span><span class="unit">A</span></div>
+      <div class="ro w"><span class="lbl">Putere</span><span class="val" id="rW">--.---</span><span class="unit">W</span></div>
+    </div>
+    <div class="chartwrap"><canvas id="chart" aria-label="Grafice live: tensiune, curent, putere"></canvas></div>
+    <div class="chartbar">
+      <div class="seg" id="win" role="group" aria-label="Fereastra de timp">
+        <button data-s="60" class="on">1 min</button><button data-s="300">5 min</button><button data-s="1800">30 min</button>
+      </div>
+      <button id="pause" class="ghost">Pauză grafic</button>
+      <button id="csv" class="ghost">Exportă CSV</button>
+    </div>
+    <dl class="sec">
+      <div><dt>Rezistență</dt><dd id="sR">—</dd></div>
+      <div><dt>Energie</dt><dd id="sWh">—</dd></div>
+      <div><dt>Capacitate</dt><dd id="sAh">—</dd></div>
+      <div><dt>Sondă</dt><dd id="sTp">—</dd></div>
+      <div><dt>MOSFET</dt><dd id="sTm">—</dd></div>
+      <div><dt>CPU</dt><dd id="sTc">—</dd></div>
+      <div><dt>Ventilator</dt><dd id="sFan">—</dd></div>
+    </dl>
+  </section>
+
+  <aside class="panel" aria-label="Comenzi">
+    <div class="runrow">
+      <button id="start" class="go">Start</button>
+      <button id="stop" class="halt">Stop</button>
+    </div>
+    <p class="summary" id="summary">—</p>
+
+    <fieldset id="cfg">
+      <legend>Mod de lucru</legend>
+      <div class="seg modes" id="modes" role="group">
+        <button data-m="0">CC</button><button data-m="1">CV</button><button data-m="2">CR</button><button data-m="3">CP</button>
+      </div>
+      <p class="hint" id="modeHint"></p>
+
+      <label class="field"><span id="spLabel">Valoare setată</span>
+        <span class="inp"><input id="in_setpoint" type="number" step="any" inputmode="decimal"><b id="spUnit">A</b><button data-set="setpoint">Setează</button></span></label>
+      <label class="field"><span>Tensiune de oprire</span>
+        <span class="inp"><input id="in_cutoff" type="number" step="any" inputmode="decimal"><b>V</b><button data-set="cutoff">Setează</button></span></label>
+
+      <h3>Protecții</h3>
+      <label class="field"><span>Curent maxim</span>
+        <span class="inp"><input id="in_ocp" type="number" step="any"><b>A</b><button data-set="ocp">Setează</button></span></label>
+      <label class="field"><span>Putere maximă</span>
+        <span class="inp"><input id="in_opp" type="number" step="any"><b>W</b><button data-set="opp">Setează</button></span></label>
+      <label class="field"><span>Temperatură sondă</span>
+        <span class="inp"><input id="in_ntc_otp" type="number" step="any"><b>°C</b><button data-set="ntc_otp">Setează</button></span></label>
+      <label class="field"><span>Temperatură MOSFET</span>
+        <span class="inp"><input id="in_mos_otp" type="number" step="any"><b>°C</b><button data-set="mos_otp">Setează</button></span></label>
+
+      <h3>Limită de timp</h3>
+      <div class="field"><span>Ore și minute (0 = fără limită)</span>
+        <span class="inp"><input id="in_th" type="number" min="0" max="99" step="1"><b>h</b><input id="in_tm" type="number" min="0" max="59" step="1"><b>min</b><button id="setTimer">Setează</button></span></div>
+    </fieldset>
+    <p class="locknote" id="lockNote" hidden>Setările sunt blocate cât timp sarcina rulează. Oprește sarcina ca să le schimbi.</p>
+
+    <ol class="log" id="log" aria-live="polite"></ol>
+  </aside>
+</main>
+<script src="app.js"></script>
+</body>
+</html>

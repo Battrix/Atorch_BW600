@@ -11,9 +11,25 @@ Proiect Battrix Energy.
 - Interfață proprie, nu o copie a aplicațiilor existente.
 - Direcție ulterioară: înlocuirea modulului Wi-Fi Tuya cu un ESP32-C3 SuperMini, interfața accesibilă la `bw600.local` / `bw150.local`.
 
+## Pornire rapidă
+
+```
+py -m pip install -e .[usb]        # o singură dată (Windows); pe Linux: python3 -m pip ...
+py -m atorch --usb                 # aparat real, USB
+py -m atorch --sim                 # aparat simulat, fără hardware
+```
+
+Se deschide interfața la `http://127.0.0.1:8787/`. Implicit serverul ascultă doar local.
+Opțiuni: `--port`, `--host 0.0.0.0` (accesibil din rețea, fără autentificare), `--profile bw150`.
+
+Teste automate: `py -m pip install -e .[dev]` apoi `py -m pytest -q`.
+Teste pe aparat: `tools/probe_read.py` (doar citire), `tools/probe_load.py` (pornește sarcina scurt).
+
 ## Stare
 
-Faza 0 — schelet de proiect și documentație. Vezi [docs/PLAN.md](docs/PLAN.md).
+Funcțional pe USB (BW600-DK verificat): protocol, transport USB, serviciu de aparat, interfață web.
+În lucru: Wi-Fi, Bluetooth, BW150, înregistrare sesiuni, rapoarte. Vezi [docs/PLAN.md](docs/PLAN.md) și
+[docs/TESTS-HARDWARE.md](docs/TESTS-HARDWARE.md).
 
 ## Documentație
 

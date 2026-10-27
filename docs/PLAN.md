@@ -17,7 +17,7 @@
 | 4 | Transport Bluetooth (BLE) | `src/atorch/transports/ble` | de făcut |
 | 5 | Serviciu de aparat (coadă, verificare, reconectare, capabilități) | `src/atorch/service` | **cod gata, testat pe simulator; netestat pe aparat** |
 | 6 | Înregistrare date (sesiuni, SQLite, CSV) | `src/atorch/recorder` | de făcut |
-| 7 | Interfață de laborator | `ui/` | de făcut |
+| 7 | Interfață de laborator | `src/atorch/ui`, `src/atorch/server` | **v0.1 gata (V/A/W, grafice, control); netestată pe aparat** |
 | 8 | Rapoarte / certificate PDF | `src/atorch/reports` | de făcut |
 | 9 | Pachetare (Windows, Linux, Raspberry Pi) și documentație | `packaging/` | de făcut |
 | 10 | Validare pe aparate reale | `tests/hardware` | de făcut |
