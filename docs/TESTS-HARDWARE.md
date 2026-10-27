@@ -38,3 +38,17 @@ Multimetru: 3.299 V. Aparat (profil `bw600`): 3.294 V (payload offset 4 = 0x0CDE
 Diferenta 0.15% — in toleranta (contact, fire). **Scara tensiunii confirmata.**
 Curent/putere = 0 (sarcina oprita), rezistenta ramane 9999.991 (afisata la circuit deschis).
 Neverificat: scara curentului si a puterii (necesita sarcina pornita — comenzi de scriere).
+
+## 2026-10-27 — BW600-DK, USB, primul test cu scriere: CC 0.5 A, cutoff 3.1 V, 6 s (`tools/probe_load.py`)
+
+Celula LiFePO4 3.2 V / 300 Ah, 3.245 V la start. Rezultat script: OK (oprire confirmata, setari restaurate).
+
+- **Scrierile functioneaza**: mod CC (0x47), setpoint (0x21), cutoff (0x29), run (0x25) — toate confirmate prin recitire.
+- Flag-ul de rulare (offset 48) devine 1 imediat dupa RUN; curentul porneste cu intarziere si creste in ~3.5 s (soft-start), apoi se stabilizeaza.
+- Curent stabilizat: ~0.516 A la setpoint 0.500 A (+3%). Puterea citita = V x I (3.235 x 0.516 = 1.669 W, confirmat) — scara puterii consistenta cu cea a tensiunii si curentului.
+- Tensiunea scade usor sub sarcina: 3.248 -> 3.235 V.
+- Setarile dinaintea testului erau mod=0 (CC), setpoint=1.0, cutoff=14.8 (diferite de prima citire, schimbate de utilizator intre timp); au fost restaurate exact.
+
+Neverificat: acuratetea curentului fata de un ampermetru extern (diferenta de 3% poate veni din calibrare:
+cal_current=0.919 pe aparat), ventilatorul sub sarcina, energia/capacitatea acumulate, comenzile de timer/cicluri.
+Pentru UI: curentul NU urmeaza instant setpoint-ul; afisarea trebuie sa tolereze ~4 s de rampa.
