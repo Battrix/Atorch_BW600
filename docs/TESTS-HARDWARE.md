@@ -31,3 +31,10 @@ corectata la sectiunea 7, coloana BW600.
 
 **Inca neverificat:** scara tensiunii/curentului/puterii si a energiei sub sarcina reala; comenzile de
 scriere; ventilatorul (0 in repaus); BW150.
+
+## 2026-10-27 — BW600-DK, USB, citire cu celula de 3.2 V conectata (sarcina oprita)
+
+Multimetru: 3.299 V. Aparat (profil `bw600`): 3.294 V (payload offset 4 = 0x0CDE = 3294, scara /1000).
+Diferenta 0.15% — in toleranta (contact, fire). **Scara tensiunii confirmata.**
+Curent/putere = 0 (sarcina oprita), rezistenta ramane 9999.991 (afisata la circuit deschis).
+Neverificat: scara curentului si a puterii (necesita sarcina pornita — comenzi de scriere).
