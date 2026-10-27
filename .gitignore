@@ -14,3 +14,6 @@ data/
 *.sqlite
 # firmware build
 firmware/**/.pio/
+
+# jurnalele scripturilor de test (le citesc din folder)
+logs/

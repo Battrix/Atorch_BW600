@@ -12,12 +12,14 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "src"))
 
+from atorch.service.logfile import start_log  # noqa: E402
 from atorch.service.sniff import monitor  # noqa: E402
 from atorch.transports import TransportError  # noqa: E402
 from atorch.transports.usb import UsbHidTransport, list_devices  # noqa: E402
 
 
 def main() -> int:
+    start_log("modes")
     ap = argparse.ArgumentParser()
     ap.add_argument("--seconds", type=float, default=600)
     ap.add_argument("--all", action="store_true", help="arata si octetii zgomotosi (V, A, W, temperaturi)")

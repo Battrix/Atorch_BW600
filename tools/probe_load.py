@@ -14,12 +14,14 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "src"))
 
+from atorch.service.logfile import start_log  # noqa: E402
 from atorch.service.selftest import SelfTestAbort, run_cc_selftest  # noqa: E402
 from atorch.transports import TransportError  # noqa: E402
 from atorch.transports.usb import UsbHidTransport, list_devices  # noqa: E402
 
 
 def main() -> int:
+    start_log("load")
     ap = argparse.ArgumentParser()
     ap.add_argument("--current", type=float, default=0.5)
     ap.add_argument("--cutoff", type=float, default=3.1)

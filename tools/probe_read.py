@@ -14,6 +14,7 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "src"))
 
+from atorch.service.logfile import start_log  # noqa: E402
 from atorch.protocol import commands, get_profile, parse_live, parse_settings  # noqa: E402
 from atorch.transports import TransportError  # noqa: E402
 from atorch.transports.usb import UsbHidTransport, list_devices  # noqa: E402
@@ -26,6 +27,7 @@ def fmt(live) -> str:
 
 
 def main() -> int:
+    start_log("read")
     try:
         devs = list_devices()
     except TransportError as e:
