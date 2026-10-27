@@ -50,9 +50,16 @@ $("calc").onclick = calc;
 $("pick").onchange = () => {
   const b = (B.catalog.batteries || []).find((x) => x.id === $("pick").value);
   if (b) fillForm(b);
+  $("pickInfo").textContent = b && b.notes ? b.notes : "";
+};
+$("seedBtn").onclick = async () => {
+  const r = await api("/api/bct/seed", {});
+  log(r.ok ? (r.added ? `Au fost adăugate ${r.added} celule.` : "Toate celulele predefinite sunt deja în bază.") : "Import: eroare", !r.ok);
+  await loadCatalog($("pick").value);
 };
 $("save").onclick = async () => {
-  const b = batteryFromForm(); delete b.id; if ($("pick").value) b.id = $("pick").value;
+  const old = (B.catalog.batteries || []).find((x) => x.id === $("pick").value) || {};
+  const b = Object.assign({}, old, batteryFromForm()); delete b.id; if ($("pick").value) b.id = $("pick").value;
   const r = await api("/api/bct/battery", {battery: b});
   if (!r.ok) { log("Salvare: " + (r.error || "eroare"), true); return; }
   log(`Bateria „${r.battery.model}” a fost salvată în baza de date.`);
@@ -73,7 +80,12 @@ async function loadCatalog(selectId) {
   const chem = $("f_chem"); chem.innerHTML = "";
   for (const [k, v] of Object.entries(c.chemistries)) chem.add(new Option(v.name, k));
   const pick = $("pick"); pick.length = 1;
-  for (const b of c.batteries) pick.add(new Option(`${b.model} (${b.nominal_v} V, ${b.rated_ah} Ah)`, b.id));
+  const groups = {"18650": "Celule 18650", "21700": "Celule 21700", "": "Alte baterii"};
+  for (const [f, title] of Object.entries(groups)) {
+    const og = document.createElement("optgroup"); og.label = title;
+    for (const b of c.batteries.filter((x) => (x.form || "") === f)) og.append(new Option(`${b.model} (${b.nominal_v} V, ${b.rated_ah} Ah)`, b.id));
+    if (og.children.length) pick.append(og);
+  }
   if (selectId !== undefined) { pick.value = selectId; pick.onchange(); }
   renderHistory();
 }

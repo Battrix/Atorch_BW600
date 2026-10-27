@@ -65,6 +65,30 @@ class TestStore:
             _atomic_write(self._bat_file, items)
         return b
 
+    def import_seed(self) -> int:
+        """Adauga celulele predefinite care lipsesc (nu atinge ce ai modificat). Intoarce cate au fost adaugate."""
+        from .seed_cells import seed_batteries
+        with self._lock:
+            items = self.batteries()
+            have = {x.get("id") for x in items}
+            new = [b for b in seed_batteries() if b["id"] not in have]
+            if new:
+                items = sorted(items + new, key=lambda x: x["model"].lower())
+                _atomic_write(self._bat_file, items)
+            return len(new)
+
+    def ensure_seed(self) -> int:
+        """O singura data pe folder de date: importa celulele predefinite (marker .seed-cells-v1)."""
+        marker = self.root / ".seed-cells-v1"
+        if marker.exists():
+            return 0
+        n = self.import_seed()
+        try:
+            marker.write_text("ok", encoding="utf-8")
+        except OSError:
+            pass
+        return n
+
     def delete_battery(self, bid: str) -> bool:
         with self._lock:
             items = self.batteries()

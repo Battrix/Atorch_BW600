@@ -135,3 +135,18 @@ def test_refuses_bad_starts(tmp_path):
         assert not sim.running and not eng.active()
     finally:
         svc.shutdown()
+
+
+def test_seed_cells(tmp_path):
+    st = TestStore(tmp_path)
+    n = st.ensure_seed()
+    assert n >= 25 and st.ensure_seed() == 0          # o singura data
+    items = {b["id"]: b for b in st.batteries()}
+    b = items["seed-samsung-inr18650-25r"]
+    assert b["rated_ah"] == 2.5 and b["empty_v"] == 2.5 and b["discharge_a"] == 0.5 and b["verified"]
+    assert items["seed-samsung-inr21700-50s"]["max_cont_a"] == 25
+    for x in items.values():
+        validate_battery(x)
+    st.delete_battery("seed-samsung-inr18650-25r")
+    assert st.ensure_seed() == 0                      # stergerea nu readuce celula
+    assert st.import_seed() == 1                      # doar importul manual o readuce

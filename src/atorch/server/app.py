@@ -175,6 +175,8 @@ def make_handler(service: DeviceService, hub: Hub, link: str, engine: BctEngine 
                                                                    model=str(b.get("model", "")))}, 200
                 if path == "/api/bct/battery":
                     return {"ok": True, "battery": store.save_battery(b["battery"])}, 200
+                if path == "/api/bct/seed":
+                    return {"ok": True, "added": store.import_seed()}, 200
                 if path == "/api/bct/battery/delete":
                     return {"ok": store.delete_battery(str(b["id"]))}, 200
             except (BctError, BatteryError) as e:

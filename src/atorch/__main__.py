@@ -38,7 +38,9 @@ def main(argv=None) -> int:
     svc = DeviceService(factory, profile=a.profile)
     svc.start()
     from atorch.bct import BctEngine, TestStore
-    engine = BctEngine(svc, TestStore())
+    store = TestStore()
+    store.ensure_seed()
+    engine = BctEngine(svc, store)
     srv = create_server(svc, a.host, a.port, link, engine)
     url = f"http://{'127.0.0.1' if a.host == '0.0.0.0' else a.host}:{srv.server_address[1]}/"
     print(f"Atorch Lab: {url}   (Ctrl+C pentru oprire)")
