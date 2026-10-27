@@ -82,3 +82,11 @@ h3{font-size:14px;margin:18px 0 6px;font-weight:650}
 @media (prefers-reduced-motion:no-preference){.lamp{transition:background .2s}}
 
 .halt.mini{padding:6px 16px;font-size:15px;box-shadow:0 2px 0 rgba(0,0,0,.28)}
+
+.seg.modes{flex-wrap:wrap;max-width:100%}
+.seg.modes button{padding:7px 10px;border-bottom:1px solid #2f3b41}
+.gauge{margin:8px 0 12px}
+.gtop{display:flex;justify-content:space-between;font-size:12px;color:#26343a}
+.gbar{height:12px;border:1px solid #2f3b41;border-radius:3px;background:#101619;overflow:hidden;margin:4px 0}
+.gbar i{display:block;height:100%;width:0;background:var(--ch-a);transition:width .4s}
+.gends{display:flex;justify-content:space-between;font-size:11px;color:#4d6068}
