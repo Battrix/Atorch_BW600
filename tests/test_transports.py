@@ -15,7 +15,9 @@ class FakeDevice:
     def close(self): self.opened = None
     def write(self, data): self.written.append(bytes(data)); return len(data)
     def read(self, n, timeout_ms):
-        if timeout_ms == 0:            # golirea cozii: nu exista raspunsuri vechi
+        assert timeout_ms >= 1, "hidapi: timeout 0 = citire blocanta"
+        self.timeouts = getattr(self, "timeouts", []) + [timeout_ms]
+        if timeout_ms == 1 and not self.written:    # golirea cozii inainte de prima cerere
             return []
         return list(self.replies.pop(0)) if self.replies else []
 

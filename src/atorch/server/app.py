@@ -183,6 +183,14 @@ def make_handler(service: DeviceService, hub: Hub, link: str):
 def create_server(service: DeviceService, host: str = "127.0.0.1", port: int = 8787,
                   link: str = "usb") -> ThreadingHTTPServer:
     hub = Hub(service)
-    srv = ThreadingHTTPServer((host, port), make_handler(service, hub, link))
-    srv.daemon_threads = True
+
+    class Server(ThreadingHTTPServer):
+        daemon_threads = True
+
+        def handle_error(self, request, client_address):      # clientul a inchis conexiunea: normal
+            import sys
+            if not isinstance(sys.exc_info()[1], (ConnectionError, OSError)):
+                super().handle_error(request, client_address)
+
+    srv = Server((host, port), make_handler(service, hub, link))
     return srv

@@ -87,7 +87,7 @@ class UsbHidTransport(Transport):
     def _flush(self) -> None:
         """Arunca raspunsurile ramase in coada (intarziate sau neasteptate)."""
         for _ in range(16):
-            stale = self._dev.read(FRAME_LEN + 1, 0)
+            stale = self._dev.read(FRAME_LEN + 1, 1)      # 1 ms; 0 ar bloca la nesfarsit in hidapi
             if not stale:
                 return
             log.debug("arunc raspuns vechi %s", bytes(stale)[:8].hex(" "))
@@ -95,7 +95,7 @@ class UsbHidTransport(Transport):
     def receive(self, timeout: float = 0.8) -> Reply:
         if self._dev is None:
             raise TransportError("transport inchis")
-        data = self._dev.read(FRAME_LEN + 1, int(timeout * 1000))
+        data = self._dev.read(FRAME_LEN + 1, max(1, int(timeout * 1000)))   # niciodata 0 (=blocant)
         if not data:
             log.debug("timeout dupa %.0f ms", (time.monotonic() - getattr(self, "_t_tx", 0)) * 1000)
             raise TransportTimeout("fara raspuns")
